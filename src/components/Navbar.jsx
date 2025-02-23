@@ -8,6 +8,7 @@ import AddCircleIcon from '@mui/icons-material/AddCircle';
 import LeaderboardIcon from '@mui/icons-material/Leaderboard';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import LogoutIcon from '@mui/icons-material/Logout';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { createPublicClient, http, formatEther } from 'viem';
@@ -16,6 +17,7 @@ import logo from '../assets/unifrens-logo-v2.png';
 import discordIcon from '../assets/4691356_discord_icon.svg';
 import xIcon from '../assets/11053970_x_logo_twitter_new_brand_icon.svg';
 import githubIcon from '../assets/github-142-svgrepo-com.svg';
+import gitbookIcon from '../assets/gitbook-svgrepo-com.svg';
 import { BackgroundPattern } from '../App';
 
 const publicClient = createPublicClient({
@@ -439,6 +441,38 @@ const Navbar = () => {
               }}
             />
           </ListItem>
+
+          {/* Documentation Link */}
+          <ListItem 
+            component="a"
+            href="https://unifrens.gitbook.io/unifrens-docs/"
+            target="_blank"
+            sx={{
+              borderRadius: '12px',
+              mb: 1,
+              textDecoration: 'none',
+              '&:hover': {
+                backgroundColor: 'rgba(245, 13, 180, 0.08)',
+              }
+            }}
+          >
+            <ListItemIcon sx={{ 
+              minWidth: 40,
+              color: '#666'
+            }}>
+              <MenuBookIcon />
+            </ListItemIcon>
+            <ListItemText 
+              primary="Documentation" 
+              sx={{
+                '& .MuiListItemText-primary': {
+                  fontSize: '0.95rem',
+                  fontWeight: 600,
+                  color: '#111'
+                }
+              }}
+            />
+          </ListItem>
         </List>
 
         {walletData.address ? (
@@ -567,6 +601,26 @@ const Navbar = () => {
                     alt="GitHub"
                   />
                 </MuiLink>
+                <MuiLink 
+                  href="https://unifrens.gitbook.io/unifrens-docs/"
+                  target="_blank"
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    opacity: 0.6,
+                    transition: 'opacity 0.2s',
+                    '&:hover': {
+                      opacity: 1
+                    }
+                  }}
+                >
+                  <Box 
+                    component="img" 
+                    src={gitbookIcon} 
+                    sx={{ width: 24 }} 
+                    alt="Documentation"
+                  />
+                </MuiLink>
               </Box>
 
               {/* Powered by Unichain */}
@@ -692,6 +746,26 @@ const Navbar = () => {
                     src={githubIcon} 
                     sx={{ width: 24 }} 
                     alt="GitHub"
+                  />
+                </MuiLink>
+                <MuiLink 
+                  href="https://unifrens.gitbook.io/unifrens-docs/"
+                  target="_blank"
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    opacity: 0.6,
+                    transition: 'opacity 0.2s',
+                    '&:hover': {
+                      opacity: 1
+                    }
+                  }}
+                >
+                  <Box 
+                    component="img" 
+                    src={gitbookIcon} 
+                    sx={{ width: 24 }} 
+                    alt="Documentation"
                   />
                 </MuiLink>
               </Box>
