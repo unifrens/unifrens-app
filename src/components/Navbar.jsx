@@ -200,7 +200,6 @@ const Navbar = () => {
         position="fixed"
         sx={{ 
           backgroundColor: '#F50DB4',
-          position: 'relative',
           overflow: 'hidden'
         }}
       >

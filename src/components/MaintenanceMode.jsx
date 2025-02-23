@@ -9,6 +9,7 @@ import ReactDOMServer from 'react-dom/server';
 import discordIcon from '/discord-icon.svg';
 import xIcon from '/x-icon.svg';
 import githubIcon from '../assets/github-142-svgrepo-com.svg';
+import gitbookIcon from '../assets/gitbook-svgrepo-com.svg';
 
 const ColorPickerPopover = ({ color, onChange, title }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -303,19 +304,21 @@ const MaintenanceMode = ({ customTitle, customDescription }) => {
 
   return (
     <Box sx={MAINTENANCE_STYLES.container}>
-      {/* Title and Loading Bar Section */}
+      {/* Upgrade Notice Panel */}
       <Box sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        mb: 4
+        backgroundColor: 'rgba(245, 13, 180, 0.03)',
+        borderRadius: '16px',
+        border: '1px solid rgba(245, 13, 180, 0.1)',
+        p: 3,
+        mb: 6
       }}>
         <Typography sx={{
-          fontSize: { xs: '1.5rem', sm: '1.75rem' },
+          fontSize: { xs: '1.25rem', sm: '1.5rem' },
           color: '#F50DB4',
           fontWeight: 700,
           mb: 3,
-          letterSpacing: '-0.02em'
+          letterSpacing: '-0.02em',
+          textAlign: 'center'
         }}>
           {customTitle || title}
         </Typography>
@@ -325,7 +328,8 @@ const MaintenanceMode = ({ customTitle, customDescription }) => {
           width: '100%', 
           maxWidth: '280px',
           opacity: 0.9,
-          mb: 4
+          mb: 3,
+          mx: 'auto'
         }}>
           <LinearProgress 
             sx={{
@@ -342,85 +346,106 @@ const MaintenanceMode = ({ customTitle, customDescription }) => {
 
         <Typography sx={{
           color: '#666',
-          fontSize: { xs: '1rem', sm: '1.1rem' },
+          fontSize: { xs: '0.95rem', sm: '1rem' },
           maxWidth: '500px',
           mx: 'auto',
+          textAlign: 'center',
           lineHeight: 1.6,
           letterSpacing: '0.01em'
         }}>
           {customDescription || description}
         </Typography>
-
-        {/* Social Links */}
-        <Box sx={{ 
-          display: 'flex', 
-          gap: 2.5, 
-          alignItems: 'center',
-          mt: 4,
-          pt: 4,
-          borderTop: '1px solid rgba(245, 13, 180, 0.1)'
-        }}>
-          <MuiLink href="https://discord.gg/nrQezVny" target="_blank" sx={{ display: 'flex', alignItems: 'center', height: 22 }}>
-            <Box 
-              component="img" 
-              src={discordIcon} 
-              sx={{ 
-                width: 22,
-                height: 22,
-                opacity: 0.8,
-                transition: 'all 0.2s',
-                filter: 'invert(36%) sepia(71%) saturate(6010%) hue-rotate(308deg) brightness(97%) contrast(101%)',
-                '&:hover': {
-                  opacity: 1,
-                  transform: 'scale(1.05)'
-                }
-              }} 
-            />
-          </MuiLink>
-          <MuiLink href="https://x.com/unichainfrens" target="_blank" sx={{ display: 'flex', alignItems: 'center', height: 22 }}>
-            <Box 
-              component="img" 
-              src={xIcon} 
-              sx={{ 
-                width: 22,
-                height: 22,
-                opacity: 0.8,
-                transition: 'all 0.2s',
-                filter: 'invert(36%) sepia(71%) saturate(6010%) hue-rotate(308deg) brightness(97%) contrast(101%)',
-                '&:hover': {
-                  opacity: 1,
-                  transform: 'scale(1.05)'
-                }
-              }} 
-            />
-          </MuiLink>
-          <MuiLink sx={{ display: 'flex', alignItems: 'center', height: 22 }}>
-            <Box 
-              component="img" 
-              src={githubIcon} 
-              sx={{ 
-                width: 22,
-                height: 22,
-                opacity: 0.8,
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                filter: 'invert(36%) sepia(71%) saturate(6010%) hue-rotate(308deg) brightness(97%) contrast(101%)',
-                '&:hover': {
-                  opacity: 1,
-                  transform: 'scale(1.05)'
-                }
-              }} 
-            />
-          </MuiLink>
-        </Box>
       </Box>
 
+      {/* Social Links */}
       <Box sx={{ 
-        mt: 6,
+        display: 'flex', 
+        gap: 2.5, 
+        alignItems: 'center',
+        justifyContent: 'center',
+        mb: 6
+      }}>
+        <MuiLink href="https://discord.gg/nrQezVny" target="_blank" sx={{ display: 'flex', alignItems: 'center', height: 22 }}>
+          <Box 
+            component="img" 
+            src={discordIcon} 
+            sx={{ 
+              width: 22,
+              height: 22,
+              opacity: 0.8,
+              transition: 'all 0.2s',
+              filter: 'invert(36%) sepia(71%) saturate(6010%) hue-rotate(308deg) brightness(97%) contrast(101%)',
+              '&:hover': {
+                opacity: 1,
+                transform: 'scale(1.05)'
+              }
+            }} 
+          />
+        </MuiLink>
+        <MuiLink href="https://x.com/unichainfrens" target="_blank" sx={{ display: 'flex', alignItems: 'center', height: 22 }}>
+          <Box 
+            component="img" 
+            src={xIcon} 
+            sx={{ 
+              width: 22,
+              height: 22,
+              opacity: 0.8,
+              transition: 'all 0.2s',
+              filter: 'invert(36%) sepia(71%) saturate(6010%) hue-rotate(308deg) brightness(97%) contrast(101%)',
+              '&:hover': {
+                opacity: 1,
+                transform: 'scale(1.05)'
+              }
+            }} 
+          />
+        </MuiLink>
+        <MuiLink href="https://github.com/unifrens" target="_blank" sx={{ display: 'flex', alignItems: 'center', height: 22 }}>
+          <Box 
+            component="img" 
+            src={githubIcon} 
+            sx={{ 
+              width: 22,
+              height: 22,
+              opacity: 0.8,
+              transition: 'all 0.2s',
+              filter: 'invert(36%) sepia(71%) saturate(6010%) hue-rotate(308deg) brightness(97%) contrast(101%)',
+              '&:hover': {
+                opacity: 1,
+                transform: 'scale(1.05)'
+              }
+            }} 
+          />
+        </MuiLink>
+        <MuiLink href="https://unifrens.gitbook.io/unifrens-docs/" target="_blank" sx={{ display: 'flex', alignItems: 'center', height: 22 }}>
+          <Box 
+            component="img" 
+            src={gitbookIcon} 
+            sx={{ 
+              width: 22,
+              height: 22,
+              opacity: 0.8,
+              transition: 'all 0.2s',
+              filter: 'invert(36%) sepia(71%) saturate(6010%) hue-rotate(308deg) brightness(97%) contrast(101%)',
+              '&:hover': {
+                opacity: 1,
+                transform: 'scale(1.05)'
+              }
+            }} 
+          />
+        </MuiLink>
+      </Box>
+
+      {/* Playground Section */}
+      <Box sx={{ 
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        gap: 3
+        gap: 3,
+        backgroundColor: 'white',
+        borderRadius: '24px',
+        p: { xs: 3, sm: 4 },
+        boxShadow: '0 8px 32px rgba(245, 13, 180, 0.08)',
+        border: '1px solid rgba(245, 13, 180, 0.1)'
       }}>
         <Typography sx={{ 
           fontSize: '1.25rem',
@@ -429,7 +454,7 @@ const MaintenanceMode = ({ customTitle, customDescription }) => {
           textAlign: 'center',
           maxWidth: '400px'
         }}>
-          Play with the Fren Generator
+          Avatar Generator Playground
         </Typography>
 
         <Typography sx={{
@@ -440,7 +465,7 @@ const MaintenanceMode = ({ customTitle, customDescription }) => {
           lineHeight: 1.6,
           mb: 1
         }}>
-          While we upgrade the contract, have fun generating some Fren avatars!
+          While we upgrade the contract, have fun experimenting with different avatar designs!
         </Typography>
 
         <Box sx={{
@@ -453,7 +478,7 @@ const MaintenanceMode = ({ customTitle, customDescription }) => {
           <TextField
             fullWidth
             variant="standard"
-            placeholder="Enter your Fren name"
+            placeholder="Try different names"
             value={avatarName}
             onChange={(e) => setAvatarName(e.target.value)}
             inputProps={{
@@ -520,7 +545,7 @@ const MaintenanceMode = ({ customTitle, customDescription }) => {
                 color: '#666',
                 mb: 0.5
               }}>
-                Metadata
+                Preview Data
               </Typography>
               <Box sx={{
                 display: 'grid',
@@ -532,7 +557,7 @@ const MaintenanceMode = ({ customTitle, customDescription }) => {
                   alignItems: 'center'
                 }}>
                   <Typography sx={{ fontSize: '0.85rem', color: '#666' }}>
-                    Token ID
+                    Example ID
                   </Typography>
                   <Typography sx={{ 
                     fontSize: '0.85rem',
@@ -549,7 +574,7 @@ const MaintenanceMode = ({ customTitle, customDescription }) => {
                   alignItems: 'center'
                 }}>
                   <Typography sx={{ fontSize: '0.85rem', color: '#666' }}>
-                    Weight
+                    Sample Weight
                   </Typography>
                   <Typography sx={{ 
                     fontSize: '0.85rem',
@@ -566,7 +591,7 @@ const MaintenanceMode = ({ customTitle, customDescription }) => {
                   alignItems: 'center'
                 }}>
                   <Typography sx={{ fontSize: '0.85rem', color: '#666' }}>
-                    Position
+                    Example Position
                   </Typography>
                   <Typography sx={{ 
                     fontSize: '0.85rem',
@@ -583,7 +608,7 @@ const MaintenanceMode = ({ customTitle, customDescription }) => {
                   alignItems: 'center'
                 }}>
                   <Typography sx={{ fontSize: '0.85rem', color: '#666' }}>
-                    Owner
+                    Sample Address
                   </Typography>
                   <Typography sx={{ 
                     fontSize: '0.85rem',
@@ -600,7 +625,7 @@ const MaintenanceMode = ({ customTitle, customDescription }) => {
                   alignItems: 'center'
                 }}>
                   <Typography sx={{ fontSize: '0.85rem', color: '#666' }}>
-                    Minted
+                    Preview Time
                   </Typography>
                   <Typography sx={{ 
                     fontSize: '0.85rem',
@@ -686,7 +711,7 @@ const MaintenanceMode = ({ customTitle, customDescription }) => {
               }
             }}
           >
-            Save Avatar
+            Download Preview
           </Button>
 
           <Typography sx={{
@@ -697,7 +722,7 @@ const MaintenanceMode = ({ customTitle, customDescription }) => {
             maxWidth: '280px',
             lineHeight: 1.6
           }}>
-            Your Fren name will be permanently associated with your NFT on the blockchain
+            Contract upgrade in progress
           </Typography>
         </Box>
 
