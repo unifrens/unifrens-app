@@ -1,6 +1,6 @@
 # Unifrens App
 
-A dynamic web3 application that brings your wallet to life with unique, personalized NFT companions. Built on Unichain, Unifrens creates interactive digital pets that grow and evolve based on your blockchain activity.
+A dynamic web3 application that brings your wallet to life with unique, personalized NFT companions. Built on Unichain.
 
 ## Features
 
