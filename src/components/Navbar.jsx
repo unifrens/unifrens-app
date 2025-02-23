@@ -584,6 +584,8 @@ const Navbar = () => {
                   />
                 </MuiLink>
                 <MuiLink 
+                  href="https://github.com/unifrens"
+                  target="_blank"
                   sx={{
                     display: 'flex',
                     alignItems: 'center',
@@ -731,6 +733,8 @@ const Navbar = () => {
                   />
                 </MuiLink>
                 <MuiLink 
+                  href="https://github.com/unifrens"
+                  target="_blank"
                   sx={{
                     display: 'flex',
                     alignItems: 'center',

@@ -372,7 +372,7 @@ function App() {
                   }} 
                 />
               </MuiLink>
-              <MuiLink sx={{ display: 'flex', alignItems: 'center', height: 22 }}>
+              <MuiLink href="https://github.com/unifrens" target="_blank" sx={{ display: 'flex', alignItems: 'center', height: 22 }}>
                 <Box 
                   component="img" 
                   src={githubIcon} 
@@ -380,7 +380,6 @@ function App() {
                     width: 22,
                     height: 22,
                     opacity: 0.8,
-                    cursor: 'pointer',
                     transition: 'all 0.2s',
                     filter: 'invert(36%) sepia(71%) saturate(6010%) hue-rotate(308deg) brightness(97%) contrast(101%)',
                     '&:hover': {
