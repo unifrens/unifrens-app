@@ -48,7 +48,12 @@ npm run dev
 
 Create a `.env` file in the root directory with the following variables:
 ```env
+# Contract
 VITE_UNIFRENS_CONTRACT=your_contract_address
+
+# API Keys
+VITE_INFURA_API_KEY=your_infura_api_key
+VITE_ALCHEMY_API_KEY=your_alchemy_api_key
 ```
 
 ## Network Information
