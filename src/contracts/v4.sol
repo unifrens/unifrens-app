@@ -11,7 +11,8 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
  * @title Unichain Frens
  * @dev A dynamic NFT ecosystem where Unifrens collect and distribute dust over time.
  * Each Unifren earns rewards from new mints, with earlier frens accumulating more
- * through a quadratic distribution formula. Mint, name, and watch your Unifren thrive!
+ * through a square root distribution formula. Mint, name, and watch your Unifren thrive!
+ * V4 Update: Changed to square root decay for more balanced distribution
  */
  
 contract UnichainFrens is ERC721Enumerable, Ownable, ReentrancyGuard {
@@ -162,6 +163,7 @@ contract UnichainFrens is ERC721Enumerable, Ownable, ReentrancyGuard {
 
     /**
      * @dev Internal function to mint a position with a weight and name
+     * V4: Updated to use square root decay for more balanced distribution
      */
     function _mintWithWeight(
         address to, 
@@ -172,8 +174,8 @@ contract UnichainFrens is ERC721Enumerable, Ownable, ReentrancyGuard {
     ) internal {
         _mint(to, tokenId);
         
-        // Calculate and store position's weight points
-        uint256 positionWeight = 1e18 / (tokenId**2);
+        // Calculate and store position's weight points using square root decay
+        uint256 positionWeight = 1e18 / sqrt(tokenId);
         uint256 weightPoints = positionWeight * weight;
         
         positionWeights[tokenId] = weight;
@@ -552,9 +554,9 @@ contract UnichainFrens is ERC721Enumerable, Ownable, ReentrancyGuard {
                     abi.encodePacked(
                         '{"name": "',
                         name,
-                        '", "description": "Unifrens live in every wallet. Unlock them and name them. They feed on ones and zeros leaving behind dust for their owner.", ',
+                        '", "description": "Unifrens live in every wallet. Unlock them and name them. They feed on ones and zeros leaving behind dust for their owner. Visit Unifrens.com to learn more.", ',
                         '"image": "',
-                        string(abi.encodePacked("https://www.unifrens.com/imgs/", tokenId.toString())),
+                        string(abi.encodePacked("https://imgs.unifrens.com/", unifrenNames[tokenId])),
                         '", "attributes": [',
                         attributes,
                         ']}'

@@ -1,6 +1,6 @@
 // Global app configuration
 export const APP_CONFIG = {
-  MAINTENANCE_MODE: true, // Global maintenance mode toggle
+  MAINTENANCE_MODE: false, // Global maintenance mode toggle
   MAINTENANCE_MESSAGE: {
     title: "Contract Upgrade in Progress",
     description: "We're currently deploying a new version of the Frens contract. The app will be back online shortly. Thank you for your patience!"

@@ -789,7 +789,7 @@ const FrensPage = () => {
                       ETH Total
                       <IconButton
                         component="a"
-                        href="https://sepolia.uniscan.xyz/address/0xa96c295886bDddbcbeB9304048Ed8C4bE3EB7604"
+                        href={`https://sepolia.uniscan.xyz/address/${CONTRACT_ADDRESS}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         size="small"
