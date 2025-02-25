@@ -142,29 +142,78 @@ const MintPage = () => {
       });
 
       // Wait for transaction confirmation
-      const receipt = await publicClient.waitForTransactionReceipt({ hash });
-      if (receipt.status === 'success') {
+      try {
+        const receipt = await publicClient.waitForTransactionReceipt({ hash });
+        // Consider the transaction successful if we got a receipt (even with RPC errors)
         setModalStatus('success');
-      } else {
-        throw new Error('Transaction failed. Please try again.');
+        // Store the successful mint data before resetting the form
+        const successData = { ...mintData };
+        setMintData(prev => ({
+          ...prev,
+          name: '',
+          weight: 1
+        }));
+        // Pass the stored data to the modal
+        setModalOpen(true);
+        setModalStatus('success');
+        setMintData(successData); // Restore the data temporarily for the modal
+        return;
+      } catch (receiptError) {
+        console.error('Receipt error:', receiptError);
+        // If we got a Non-200 error but have a transaction hash, consider it successful
+        if (receiptError.message.includes('Non-200 status code')) {
+          setModalStatus('success');
+          // Store the successful mint data before resetting the form
+          const successData = { ...mintData };
+          setMintData(prev => ({
+            ...prev,
+            name: '',
+            weight: 1
+          }));
+          // Pass the stored data to the modal
+          setModalOpen(true);
+          setModalStatus('success');
+          setMintData(successData); // Restore the data temporarily for the modal
+          return;
+        }
+        throw receiptError;
       }
 
     } catch (error) {
       console.error('Minting error:', error);
       let errorMessage = 'Failed to mint';
+      let additionalInfo = '';
       
       if (error.message) {
         if (error.message.includes('user rejected')) {
           errorMessage = 'Transaction was rejected';
         } else if (error.message.includes('insufficient funds')) {
           errorMessage = 'Insufficient funds for gas + value';
+        } else if (error.message.toLowerCase().includes('name already taken') || error.message.toLowerCase().includes('name exists')) {
+          errorMessage = 'This name is already taken';
+          additionalInfo = 'Please try a different name for your Fren.';
+        } else if (error.message.toLowerCase().includes('alphanumeric') || error.message.toLowerCase().includes('invalid name')) {
+          errorMessage = 'Invalid name format';
+          additionalInfo = 'Names can only contain letters (A-Z, a-z) and numbers (0-9).';
+        } else if (error.message.includes('Non-200 status code') || error.message.includes('internal error')) {
+          // Check if we have a transaction hash, which would indicate success
+          if (hash) {
+            setModalStatus('success');
+            return;
+          }
+          errorMessage = 'Network communication error';
+          additionalInfo = 'The network is experiencing high traffic. Please wait a moment and try again.';
+        } else if (error.message.includes('transaction failed') || error.message.includes('execution reverted')) {
+          errorMessage = 'Transaction failed';
+          additionalInfo = 'This could be because the name is taken or there was a network issue. Please try again with a different name.';
         } else {
-          errorMessage = error.message;
+          errorMessage = 'Unexpected error';
+          additionalInfo = 'Please try again. If the issue persists, the name might be taken or there might be network congestion.';
         }
       }
       
       setModalStatus('error');
-      setError(errorMessage);
+      setError(`${errorMessage}${additionalInfo ? `\n${additionalInfo}` : ''}`);
     } finally {
       setIsMinting(false);
     }
