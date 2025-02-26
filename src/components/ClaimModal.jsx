@@ -185,6 +185,33 @@ const ClaimModal = ({ open, onClose, token, onSuccess }) => {
   const [error, setError] = useState('');
   const [txStatus, setTxStatus] = useState('');
   const [retryCount, setRetryCount] = useState(0);
+  const [success, setSuccess] = useState(false);
+
+  // Add error constants that match the contract
+  const CONTRACT_ERRORS = {
+    NOT_OWNER: "UNIFRENS: Not the owner",
+    MAX_WEIGHT: "UNIFRENS: Max weight reached",
+    NO_REWARDS: "UNIFRENS: No rewards available",
+    MIN_REWARDS: "UNIFRENS: Insufficient rewards for redistribution",
+    INSUFFICIENT_BALANCE: "UNIFRENS: Insufficient contract balance",
+    POSITION_INACTIVE: "UNIFRENS: Position is inactive",
+    POSITION_ALREADY_INACTIVE: "UNIFRENS: Position already inactive",
+    WITHDRAWAL_TOO_SMALL: "UNIFRENS: Withdrawal amount too small",
+    NOT_LAST_ACTIVE: "UNIFRENS: Not the last active position"
+  };
+
+  // Add user-friendly error messages
+  const ERROR_MESSAGES = {
+    [CONTRACT_ERRORS.NOT_OWNER]: "You don't own this Fren",
+    [CONTRACT_ERRORS.MAX_WEIGHT]: "This Fren has reached maximum weight (1000×). Try a different claim option.",
+    [CONTRACT_ERRORS.NO_REWARDS]: "No rewards available to claim. Please wait for rewards to accumulate.",
+    [CONTRACT_ERRORS.MIN_REWARDS]: "Need at least 0.0009 ETH in rewards to redistribute. Try the 'Stay & Play' option instead.",
+    [CONTRACT_ERRORS.INSUFFICIENT_BALANCE]: "Contract balance is too low. Please try again later.",
+    [CONTRACT_ERRORS.POSITION_INACTIVE]: "This Fren is inactive and cannot claim rewards.",
+    [CONTRACT_ERRORS.POSITION_ALREADY_INACTIVE]: "This Fren is already inactive.",
+    [CONTRACT_ERRORS.WITHDRAWAL_TOO_SMALL]: "Withdrawal amount is too small. Accumulate more rewards first.",
+    [CONTRACT_ERRORS.NOT_LAST_ACTIVE]: "There are still other active Frens. Victory can only be claimed when you have the last active Fren."
+  };
 
   const handleClaim = async (type) => {
     if (!window.ethereum) {
@@ -215,6 +242,12 @@ const ClaimModal = ({ open, onClose, token, onSuccess }) => {
         transport: custom(window.ethereum)
       });
 
+      // Create clients
+      const publicClient = createPublicClient({
+        chain: unichainSepolia,
+        transport: http()
+      });
+
       let functionName;
       let actionName;
       switch (type) {
@@ -230,21 +263,45 @@ const ClaimModal = ({ open, onClose, token, onSuccess }) => {
           functionName = 'redistribute';
           actionName = 'Redistribute';
           break;
+        case 'victory':
+          functionName = 'claimVictory';
+          actionName = 'Claim Victory';
+          break;
         default:
           throw new Error('Invalid claim type');
       }
 
-      setTxStatus(`Waiting for ${actionName} confirmation in your wallet...`);
-      
-      // Add delay if this is a retry attempt
-      if (retryCount > 0) {
-        const delay = Math.min(1000 * Math.pow(2, retryCount), 8000);
-        await new Promise(resolve => setTimeout(resolve, delay));
+      // Simulate the transaction first to get potential revert reasons
+      try {
+        setTxStatus('Simulating transaction...');
+        const { request } = await publicClient.simulateContract({
+          address: CONTRACT_ADDRESS,
+          abi: CONTRACT_ABI,
+          functionName,
+          args: [token.id],
+          account
+        });
+
+        console.log('Simulation successful:', request);
+      } catch (error) {
+        console.error('Simulation failed:', error);
+        
+        // Extract error message
+        const errorMessage = error.message || '';
+        
+        // Check for known contract errors first
+        for (const [key, contractError] of Object.entries(CONTRACT_ERRORS)) {
+          if (errorMessage.includes(contractError)) {
+            throw new Error(ERROR_MESSAGES[contractError]);
+          }
+        }
+        
+        // If we can't determine specific error, throw simulation error
+        throw new Error(`Transaction would fail: ${errorMessage}`);
       }
 
-      // Store transaction time for rate limiting
-      localStorage.setItem('lastClaimTx', Date.now().toString());
-
+      setTxStatus(`Initiating ${actionName}...`);
+      
       const hash = await walletClient.writeContract({
         address: CONTRACT_ADDRESS,
         abi: CONTRACT_ABI,
@@ -252,92 +309,65 @@ const ClaimModal = ({ open, onClose, token, onSuccess }) => {
         args: [token.id]
       });
 
-      setTxStatus(`Transaction submitted! Waiting for network confirmation...`);
+      setTxStatus(`Waiting for ${actionName} confirmation...`);
+      console.log('Transaction hash:', hash);
 
-      // Create a new publicClient for each transaction to avoid stale connections
-      const publicClient = createPublicClient({
-        chain: unichainSepolia,
-        transport: http()
-      });
+      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+      console.log('Transaction receipt:', receipt);
 
-      try {
-        // Wait for transaction with timeout
-        const receipt = await Promise.race([
-          publicClient.waitForTransactionReceipt({ hash }),
-          new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Transaction confirmation timeout')), 45000)
-          )
-        ]);
-        
-        if (receipt.status === 'success') {
-          setTxStatus('Success! Your claim has been processed.');
-          
-          // Wait a moment before closing to ensure blockchain state is updated
-          await new Promise(resolve => setTimeout(resolve, 2000));
-
-          // Close modal first to improve perceived performance
-          onClose();
-          
-          // Then trigger the refresh
-          if (typeof onSuccess === 'function') {
-            onSuccess(token.id);
-          } else {
-            // Only reload as last resort
-            window.location.reload();
-          }
-        } else {
-          throw new Error('Transaction failed');
-        }
-
-      } catch (receiptError) {
-        // If we have a hash but got a timeout/RPC error, consider it potentially successful
-        if (hash && (
-          receiptError.message.includes('timeout') || 
-          receiptError.message.includes('Non-200') ||
-          receiptError.message.includes('internal error')
-        )) {
-          setTxStatus('Transaction submitted but confirmation is taking longer than expected. Please check your wallet or the explorer for status.');
-          
-          // Still close the modal and refresh after a delay
-          await new Promise(resolve => setTimeout(resolve, 3000));
-          onClose();
-          if (typeof onSuccess === 'function') {
-            onSuccess(token.id);
-          }
-          return;
-        }
-        throw receiptError;
+      if (receipt.status === 'reverted') {
+        throw new Error(`${actionName} failed. Please check your wallet for details.`);
       }
 
+      // Store last successful tx time
+      localStorage.setItem('lastClaimTx', Date.now().toString());
+
+      setTxStatus(`${actionName} successful!`);
+      setSuccess(true);
+      
+      // Refresh token data after successful claim
+      await onSuccess(token.id);
+
     } catch (error) {
-      console.error('Claim error:', error);
+      // Enhanced error logging
+      console.error('Claim error full details:', {
+        error,
+        errorMessage: error.message,
+        errorData: error.data,
+        errorCode: error.code,
+        token: {
+          id: token.id,
+          rewards: token.rewards ? formatEther(token.rewards) : '0',
+          weight: token.weight
+        }
+      });
+      
       let errorMessage = 'Failed to process claim';
       
-      if (error.message) {
-        const msg = error.message.toLowerCase();
-        
-        if (msg.includes('user rejected')) {
-          errorMessage = 'Transaction was rejected in your wallet';
+      // Check for known contract errors first
+      for (const [key, contractError] of Object.entries(CONTRACT_ERRORS)) {
+        if (error.message.includes(contractError)) {
+          errorMessage = ERROR_MESSAGES[contractError];
           setRetryCount(0);
-        } else if (msg.includes('insufficient funds')) {
-          errorMessage = 'Insufficient funds for gas fees';
-          setRetryCount(0);
-        } else if (msg.includes('please wait')) {
-          errorMessage = error.message;
-          setRetryCount(0);
-        } else if (msg.includes('timeout')) {
-          errorMessage = 'Transaction is taking longer than expected. Please check your wallet or explorer.';
-          setRetryCount(prev => prev + 1);
-        } else if (msg.includes('429') || msg.includes('too many requests')) {
-          errorMessage = 'Network is busy. Please try again in a moment.';
-          setRetryCount(prev => prev + 1);
-        } else if (msg.includes('nonce too low') || msg.includes('replacement fee too low')) {
-          errorMessage = 'Transaction conflict. Please wait a moment and try again.';
-          setRetryCount(prev => prev + 1);
-        } else {
-          errorMessage = 'Transaction failed. Please try again.';
-          setRetryCount(0);
+          setError(errorMessage);
+          return;
         }
+      }
+      
+      // Handle other common errors
+      if (error.message.toLowerCase().includes('user rejected')) {
+        errorMessage = 'Transaction was rejected in your wallet';
+      } else if (error.message.toLowerCase().includes('insufficient funds')) {
+        errorMessage = 'Insufficient funds for gas fees';
+      } else if (error.message.toLowerCase().includes('please wait')) {
+        errorMessage = error.message;
+      } else if (error.message.toLowerCase().includes('timeout')) {
+        errorMessage = 'Transaction is taking longer than expected. Please check your wallet or explorer.';
+        setRetryCount(prev => prev + 1);
+      } else {
+        console.warn('Unhandled error type:', error);
+        errorMessage = `Transaction failed: ${error.message || 'Unknown error'}`;
+        setRetryCount(0);
       }
       
       setError(errorMessage);
@@ -538,6 +568,18 @@ const ClaimModal = ({ open, onClose, token, onSuccess }) => {
                 redistributeAmount={25}
                 onClick={() => handleClaim('hard')}
                 disabled={claiming && selectedOption !== 'hard'}
+              />
+
+              <ClaimOption
+                title="Claim Victory"
+                description="If you're the last active Fren standing (all other Frens have weight 0), you can claim the entire contract balance as the ultimate winner!"
+                warning="This is a one-time action that will also retire your Fren."
+                details="The ultimate endgame. If you've managed to outlast all other players and are the last active Fren, you can claim the entire remaining balance. This is the true victory condition of the game!"
+                amount={contractBalance || token.rewards}
+                effectAmount={100}
+                redistributeAmount={0}
+                onClick={() => handleClaim('victory')}
+                disabled={claiming && selectedOption !== 'victory'}
               />
             </Box>
           </>

@@ -1,7 +1,7 @@
 // Unifrens Contract Configuration
 
 // Contract address for Sepolia testnet
-export const CONTRACT_ADDRESS = '0x7fD49BCda9adB3c7E1326469591333147A9aA4B8';
+export const CONTRACT_ADDRESS = '0x18f2D53734EEA48B0cCa1798944b963ea7dC3f46';
 
 // Contract ABI
 export const CONTRACT_ABI = [
