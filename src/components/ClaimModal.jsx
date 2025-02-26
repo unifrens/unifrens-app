@@ -198,6 +198,13 @@ const ClaimModal = ({ open, onClose, token, onSuccess }) => {
       setError('');
       setTxStatus('Preparing transaction...');
 
+      // Add rate limiting check
+      const now = Date.now();
+      const lastTxTime = localStorage.getItem('lastClaimTx');
+      if (lastTxTime && (now - parseInt(lastTxTime)) < 10000) { // 10 second cooldown
+        throw new Error('Please wait a moment between transactions');
+      }
+
       const [account] = await window.ethereum.request({
         method: 'eth_requestAccounts'
       });
@@ -231,9 +238,12 @@ const ClaimModal = ({ open, onClose, token, onSuccess }) => {
       
       // Add delay if this is a retry attempt
       if (retryCount > 0) {
-        const delay = Math.min(1000 * Math.pow(2, retryCount), 8000); // Exponential backoff, max 8 seconds
+        const delay = Math.min(1000 * Math.pow(2, retryCount), 8000);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
+
+      // Store transaction time for rate limiting
+      localStorage.setItem('lastClaimTx', Date.now().toString());
 
       const hash = await walletClient.writeContract({
         address: CONTRACT_ADDRESS,
@@ -244,45 +254,59 @@ const ClaimModal = ({ open, onClose, token, onSuccess }) => {
 
       setTxStatus(`Transaction submitted! Waiting for network confirmation...`);
 
-      // Wait for transaction confirmation using publicClient instead of walletClient
+      // Create a new publicClient for each transaction to avoid stale connections
       const publicClient = createPublicClient({
         chain: unichainSepolia,
         transport: http()
       });
 
-      const receipt = await publicClient.waitForTransactionReceipt({ hash });
-      
-      if (receipt.status === 'success') {
-        setTxStatus('Success! Your claim has been processed.');
+      try {
+        // Wait for transaction with timeout
+        const receipt = await Promise.race([
+          publicClient.waitForTransactionReceipt({ hash }),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Transaction confirmation timeout')), 45000)
+          )
+        ]);
         
-        // Wait a moment for the blockchain to update
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        if (receipt.status === 'success') {
+          setTxStatus('Success! Your claim has been processed.');
+          
+          // Wait a moment before closing to ensure blockchain state is updated
+          await new Promise(resolve => setTimeout(resolve, 2000));
 
-        try {
-          // Fetch updated token info
-          const tokenInfo = await publicClient.readContract({
-            address: CONTRACT_ADDRESS,
-            abi: CONTRACT_ABI,
-            functionName: 'getTokenInfo',
-            args: [token.id]
-          });
-
-          // Close modal and trigger refresh with updated data
+          // Close modal first to improve perceived performance
           onClose();
+          
+          // Then trigger the refresh
           if (typeof onSuccess === 'function') {
             onSuccess(token.id);
           } else {
-            // Fallback to page reload if no refresh function provided
+            // Only reload as last resort
             window.location.reload();
           }
-        } catch (fetchError) {
-          console.error('Error fetching updated token data:', fetchError);
-          // Still close and reload if we can't fetch updated data
-          onClose();
-          window.location.reload();
+        } else {
+          throw new Error('Transaction failed');
         }
-      } else {
-        throw new Error('Transaction failed');
+
+      } catch (receiptError) {
+        // If we have a hash but got a timeout/RPC error, consider it potentially successful
+        if (hash && (
+          receiptError.message.includes('timeout') || 
+          receiptError.message.includes('Non-200') ||
+          receiptError.message.includes('internal error')
+        )) {
+          setTxStatus('Transaction submitted but confirmation is taking longer than expected. Please check your wallet or the explorer for status.');
+          
+          // Still close the modal and refresh after a delay
+          await new Promise(resolve => setTimeout(resolve, 3000));
+          onClose();
+          if (typeof onSuccess === 'function') {
+            onSuccess(token.id);
+          }
+          return;
+        }
+        throw receiptError;
       }
 
     } catch (error) {
@@ -290,18 +314,29 @@ const ClaimModal = ({ open, onClose, token, onSuccess }) => {
       let errorMessage = 'Failed to process claim';
       
       if (error.message) {
-        if (error.message.includes('user rejected')) {
+        const msg = error.message.toLowerCase();
+        
+        if (msg.includes('user rejected')) {
           errorMessage = 'Transaction was rejected in your wallet';
-          setRetryCount(0); // Reset retry count for user rejections
-        } else if (error.message.includes('insufficient funds')) {
+          setRetryCount(0);
+        } else if (msg.includes('insufficient funds')) {
           errorMessage = 'Insufficient funds for gas fees';
-          setRetryCount(0); // Reset retry count for insufficient funds
-        } else if (error.message.includes('429') || error.message.includes('Too Many Requests')) {
+          setRetryCount(0);
+        } else if (msg.includes('please wait')) {
+          errorMessage = error.message;
+          setRetryCount(0);
+        } else if (msg.includes('timeout')) {
+          errorMessage = 'Transaction is taking longer than expected. Please check your wallet or explorer.';
+          setRetryCount(prev => prev + 1);
+        } else if (msg.includes('429') || msg.includes('too many requests')) {
           errorMessage = 'Network is busy. Please try again in a moment.';
-          setRetryCount(prev => prev + 1); // Increment retry count for rate limits
+          setRetryCount(prev => prev + 1);
+        } else if (msg.includes('nonce too low') || msg.includes('replacement fee too low')) {
+          errorMessage = 'Transaction conflict. Please wait a moment and try again.';
+          setRetryCount(prev => prev + 1);
         } else {
-          errorMessage = `Transaction failed: ${error.message}`;
-          setRetryCount(0); // Reset retry count for other errors
+          errorMessage = 'Transaction failed. Please try again.';
+          setRetryCount(0);
         }
       }
       

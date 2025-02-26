@@ -5,6 +5,15 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   publicDir: 'public',
+  server: {
+    proxy: {
+      '/api/leaderboard': {
+        target: 'https://imgs.unifrens.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, '')
+      }
+    }
+  },
   optimizeDeps: {
     esbuildOptions: {
       target: 'es2020'

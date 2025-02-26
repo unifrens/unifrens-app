@@ -101,12 +101,12 @@ const fetchWithRetry = async (fn, retries = 2) => {
   throw lastError;
 };
 
-const RefreshButton = ({ onClick, disabled, isRefreshing }) => (
-  <Tooltip title="Refresh data">
+const RefreshButton = ({ onClick, disabled, isRefreshing, cooldown }) => (
+  <Tooltip title={cooldown ? "Please wait before refreshing again" : "Refresh data"}>
     <span>
       <IconButton
         onClick={onClick}
-        disabled={disabled}
+        disabled={disabled || cooldown}
         sx={{ 
           color: '#F50DB4',
           backgroundColor: 'white',
@@ -145,7 +145,7 @@ const formatNumber = (num) => {
 
 const FrensPage = () => {
   // Remove the local MAINTENANCE_MODE constant and use APP_CONFIG
-  const SHOW_WITHDRAWAL_ANNOUNCEMENT = APP_CONFIG.SHOW_WITHDRAWAL_ANNOUNCEMENT;
+  const SHOW_LEADERBOARD_ANNOUNCEMENT = APP_CONFIG.SHOW_LEADERBOARD_ANNOUNCEMENT;
   
   const [nfts, setNfts] = useState(() => {
     // Initialize state with cached data if available
@@ -181,6 +181,7 @@ const FrensPage = () => {
     isSolvent: true,
     loading: true
   });
+  const [refreshCooldown, setRefreshCooldown] = useState(false);
 
   const formatAddress = (address) => {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -194,10 +195,11 @@ const FrensPage = () => {
       const { data, timestamp, address } = JSON.parse(cached);
       const now = Date.now();
       const age = now - timestamp;
-      const tenMinutes = 10 * 60 * 1000; // Increase cache duration to 10 minutes
+      // Reduce cache duration to 30 seconds for better responsiveness
+      const cacheTimeout = 30 * 1000;
 
       // Return cached data if it's fresh enough and matches current wallet
-      if (age <= tenMinutes && address === walletData.address) {
+      if (age <= cacheTimeout && address === walletData.address) {
         return data.map(token => ({
           ...token,
           id: BigInt(token.id),
@@ -443,12 +445,18 @@ const FrensPage = () => {
   };
 
   const refreshData = async () => {
-    if (isRefreshing) return;
+    if (isRefreshing || refreshCooldown) return;
     setIsRefreshing(true);
+    setRefreshCooldown(true);
+    
     try {
       await fetchUserNFTs(true); // Pass true to skip cache
     } finally {
       setIsRefreshing(false);
+      // Start 45 second cooldown
+      setTimeout(() => {
+        setRefreshCooldown(false);
+      }, 45000);
     }
   };
 
@@ -524,6 +532,19 @@ const FrensPage = () => {
     return () => clearInterval(interval);
   }, [fetchContractHealth]);
 
+  // Add mint success handler
+  useEffect(() => {
+    const handleMintSuccess = () => {
+      // Clear cache immediately
+      localStorage.removeItem('unifrens_cache');
+      // Refresh NFTs with cache bypass
+      fetchUserNFTs(true);
+    };
+
+    window.addEventListener('unifrens:mint:success', handleMintSuccess);
+    return () => window.removeEventListener('unifrens:mint:success', handleMintSuccess);
+  }, [fetchUserNFTs]);
+
   if (!walletData.isConnected || !walletData.address) {
     return <ConnectPage />;
   }
@@ -550,7 +571,7 @@ const FrensPage = () => {
         }}
       >
         {/* Announcement Alert - Always show this */}
-        {SHOW_WITHDRAWAL_ANNOUNCEMENT && (
+        {SHOW_LEADERBOARD_ANNOUNCEMENT && (
           <Alert 
             severity="info"
             sx={{
@@ -559,10 +580,16 @@ const FrensPage = () => {
               backgroundColor: 'rgba(245, 13, 180, 0.04)',
               border: '1px solid rgba(245, 13, 180, 0.1)',
               '& .MuiAlert-icon': {
-                color: '#F50DB4'
+                color: '#F50DB4',
+                marginTop: '2px'
               },
               '& .MuiAlert-message': {
-                width: '100%'
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 2,
+                padding: '1px 0'
               }
             }}
           >
@@ -571,8 +598,29 @@ const FrensPage = () => {
               color: '#111',
               lineHeight: 1.5
             }}>
-              🚀 <strong>Contract Migration in Progress:</strong> We're upgrading to a new and improved contract with enhanced features. Thank you for your patience and for being an early tester of Unifrens!
+              🏆 {' '}<strong>Leaderboards are now live!</strong> Check out where your Frens rank and compete for the top spots.
             </Typography>
+            <Button
+              component={Link}
+              to="/leaderboard"
+              variant="contained"
+              size="small"
+              sx={{
+                backgroundColor: '#F50DB4',
+                color: 'white',
+                fontSize: '0.85rem',
+                py: 0.75,
+                px: 2,
+                borderRadius: '8px',
+                textTransform: 'none',
+                whiteSpace: 'nowrap',
+                '&:hover': {
+                  backgroundColor: '#d00a9b'
+                }
+              }}
+            >
+              View Leaderboard
+            </Button>
           </Alert>
         )}
 
@@ -605,7 +653,7 @@ const FrensPage = () => {
                     textAlign: 'center',
                     position: 'relative'
                   }}>
-                    {loading && (
+                    {initialLoad && (
                       <Box sx={{
                         position: 'absolute',
                         top: 0,
@@ -652,7 +700,7 @@ const FrensPage = () => {
                     textAlign: 'center',
                     position: 'relative'
                   }}>
-                    {loading && (
+                    {initialLoad && (
                       <Box sx={{
                         position: 'absolute',
                         top: 0,
@@ -699,7 +747,7 @@ const FrensPage = () => {
                     textAlign: 'center',
                     position: 'relative'
                   }}>
-                    {loading && (
+                    {initialLoad && (
                       <Box sx={{
                         position: 'absolute',
                         top: 0,
@@ -747,7 +795,7 @@ const FrensPage = () => {
                     position: 'relative',
                     gridColumn: { xs: '2 / span 1', sm: 'auto' }
                   }}>
-                    {contractHealth.loading && (
+                    {initialLoad && contractHealth.loading && (
                       <Box sx={{
                         position: 'absolute',
                         top: 0,
@@ -1029,6 +1077,7 @@ const FrensPage = () => {
                   onClick={refreshData}
                   disabled={loading || isRefreshing}
                   isRefreshing={isRefreshing}
+                  cooldown={refreshCooldown}
                 />
                 <Button
                   component={Link}
@@ -1060,7 +1109,7 @@ const FrensPage = () => {
           {APP_CONFIG.MAINTENANCE_MODE ? (
             <MaintenanceMode />
           ) : (
-            loading ? (
+            initialLoad ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
                 <CircularProgress sx={{ color: '#F50DB4' }} />
               </Box>
@@ -1201,23 +1250,25 @@ const FrensPage = () => {
                         ) : (
                           <>
                             <Button
-                              variant="outlined"
+                              variant="contained"
                               size="small"
                               fullWidth
                               onClick={() => handleClaimClick(token)}
                               sx={{ 
-                                borderColor: '#F50DB4',
-                                color: '#F50DB4',
+                                backgroundColor: '#F50DB4',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '12px',
                                 '&:hover': {
-                                  borderColor: '#d00a9b',
-                                  backgroundColor: 'rgba(245, 13, 180, 0.04)'
+                                  backgroundColor: '#d00a9b',
+                                  boxShadow: '0 4px 16px rgba(245, 13, 180, 0.2)'
                                 }
                               }}
                             >
                               Claim
                             </Button>
                             <Button
-                              variant="outlined"
+                              variant="contained"
                               size="small"
                               onClick={() => {
                                 // Create a canvas element
@@ -1274,11 +1325,13 @@ const FrensPage = () => {
                               }}
                               sx={{ 
                                 minWidth: '40px',
-                                borderColor: '#F50DB4',
-                                color: '#F50DB4',
+                                backgroundColor: '#F50DB4',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '12px',
                                 '&:hover': {
-                                  borderColor: '#d00a9b',
-                                  backgroundColor: 'rgba(245, 13, 180, 0.04)'
+                                  backgroundColor: '#d00a9b',
+                                  boxShadow: '0 4px 16px rgba(245, 13, 180, 0.2)'
                                 }
                               }}
                             >

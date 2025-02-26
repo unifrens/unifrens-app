@@ -5,7 +5,7 @@ export const APP_CONFIG = {
     title: "Contract Upgrade in Progress",
     description: "We're currently deploying a new version of the Frens contract. The app will be back online shortly. Thank you for your patience!"
   },
-  SHOW_WITHDRAWAL_ANNOUNCEMENT: false, // Control withdrawal announcement visibility
+  SHOW_LEADERBOARD_ANNOUNCEMENT: true, // Control leaderboard announcement visibility
   // Add other global configuration options here as needed
 };
 

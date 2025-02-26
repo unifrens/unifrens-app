@@ -36,8 +36,12 @@ const MintPage = () => {
       if (!window.ethereum) return;
 
       try {
-        const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-        const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+        // Batch request both accounts and chainId
+        const [accounts, chainId] = await Promise.all([
+          window.ethereum.request({ method: 'eth_accounts' }),
+          window.ethereum.request({ method: 'eth_chainId' })
+        ]);
+        
         const validChainId = `0x${unichainSepolia.id.toString(16)}`;
         
         if (accounts.length > 0) {
@@ -59,18 +63,20 @@ const MintPage = () => {
         }
       } catch (error) {
         console.error('Error checking wallet status:', error);
-        setMintData(prev => ({ 
-          ...prev, 
-          walletAddress: '', 
-          networkName: '', 
-          isValidNetwork: false 
-        }));
       }
     };
 
+    // Initial check
     checkWalletStatus();
-    const interval = setInterval(checkWalletStatus, 2000);
-    return () => clearInterval(interval);
+    
+    // Set up event listeners instead of polling
+    window.ethereum?.on('accountsChanged', checkWalletStatus);
+    window.ethereum?.on('chainChanged', checkWalletStatus);
+    
+    return () => {
+      window.ethereum?.removeListener('accountsChanged', checkWalletStatus);
+      window.ethereum?.removeListener('chainChanged', checkWalletStatus);
+    };
   }, []);
 
   const handleWeightChange = (event, value) => {
@@ -94,6 +100,14 @@ const MintPage = () => {
     return (basePrice * weight).toFixed(4);
   };
 
+  // Add event emitter for successful mints
+  const emitMintSuccess = () => {
+    const event = new CustomEvent('unifrens:mint:success', {
+      detail: { timestamp: Date.now() }
+    });
+    window.dispatchEvent(event);
+  };
+
   const handleMint = async () => {
     if (!window.ethereum) {
       setError('Please install a Web3 wallet');
@@ -106,6 +120,17 @@ const MintPage = () => {
       setIsMinting(true);
       setError('');
       setTxStatus('');
+
+      // Validate inputs first
+      if (mintData.weight < 1 || mintData.weight > 100) {
+        throw new Error('Invalid weight value');
+      }
+
+      const nameError = validateName(mintData.name);
+      if (nameError) {
+        throw new Error(nameError);
+      }
+
       const [account] = await window.ethereum.request({
         method: 'eth_requestAccounts'
       });
@@ -116,23 +141,16 @@ const MintPage = () => {
         transport: custom(window.ethereum)
       });
 
-      // Validate weight and name before proceeding
-      if (mintData.weight < 1 || mintData.weight > 100) {
-        throw new Error('Invalid weight value');
-      }
-
-      const nameError = validateName(mintData.name);
-      if (nameError) {
-        throw new Error(nameError);
-      }
-
-      // Calculate and validate mint price
+      // Calculate mint price
       const mintPrice = parseEther(calculateMintPrice(mintData.weight));
+      
+      // Check balance only once
       const balance = await publicClient.getBalance({ address: account });
       if (balance < mintPrice) {
         throw new Error('Insufficient balance for minting');
       }
 
+      // Attempt to mint
       const hash = await walletClient.writeContract({
         address: CONTRACT_ADDRESS,
         abi: CONTRACT_ABI,
@@ -141,39 +159,43 @@ const MintPage = () => {
         value: mintPrice
       });
 
-      // Wait for transaction confirmation
+      // Wait for transaction with timeout
       try {
-        const receipt = await publicClient.waitForTransactionReceipt({ hash });
-        // Consider the transaction successful if we got a receipt (even with RPC errors)
+        const receipt = await Promise.race([
+          publicClient.waitForTransactionReceipt({ hash }),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Transaction confirmation timeout')), 30000)
+          )
+        ]);
+
         setModalStatus('success');
-        // Store the successful mint data before resetting the form
         const successData = { ...mintData };
         setMintData(prev => ({
           ...prev,
           name: '',
           weight: 1
         }));
-        // Pass the stored data to the modal
-        setModalOpen(true);
-        setModalStatus('success');
-        setMintData(successData); // Restore the data temporarily for the modal
+        setMintData(successData);
+        // Emit success event
+        emitMintSuccess();
         return;
       } catch (receiptError) {
-        console.error('Receipt error:', receiptError);
-        // If we got a Non-200 error but have a transaction hash, consider it successful
-        if (receiptError.message.includes('Non-200 status code')) {
+        // If we have a hash but got a timeout/RPC error, consider it potentially successful
+        if (hash && (
+          receiptError.message.includes('timeout') || 
+          receiptError.message.includes('Non-200') ||
+          receiptError.message.includes('internal error')
+        )) {
           setModalStatus('success');
-          // Store the successful mint data before resetting the form
           const successData = { ...mintData };
           setMintData(prev => ({
             ...prev,
             name: '',
             weight: 1
           }));
-          // Pass the stored data to the modal
-          setModalOpen(true);
-          setModalStatus('success');
-          setMintData(successData); // Restore the data temporarily for the modal
+          setMintData(successData);
+          // Emit success event even on timeout since we have a hash
+          emitMintSuccess();
           return;
         }
         throw receiptError;
@@ -181,39 +203,32 @@ const MintPage = () => {
 
     } catch (error) {
       console.error('Minting error:', error);
-      let errorMessage = 'Failed to mint';
-      let additionalInfo = '';
+      
+      // Clean up error message for user display
+      let userError = 'Failed to mint';
       
       if (error.message) {
-        if (error.message.includes('user rejected')) {
-          errorMessage = 'Transaction was rejected';
-        } else if (error.message.includes('insufficient funds')) {
-          errorMessage = 'Insufficient funds for gas + value';
-        } else if (error.message.toLowerCase().includes('name already taken') || error.message.toLowerCase().includes('name exists')) {
-          errorMessage = 'This name is already taken';
-          additionalInfo = 'Please try a different name for your Fren.';
-        } else if (error.message.toLowerCase().includes('alphanumeric') || error.message.toLowerCase().includes('invalid name')) {
-          errorMessage = 'Invalid name format';
-          additionalInfo = 'Names can only contain letters (A-Z, a-z) and numbers (0-9).';
-        } else if (error.message.includes('Non-200 status code') || error.message.includes('internal error')) {
-          // Check if we have a transaction hash, which would indicate success
-          if (hash) {
-            setModalStatus('success');
-            return;
-          }
-          errorMessage = 'Network communication error';
-          additionalInfo = 'The network is experiencing high traffic. Please wait a moment and try again.';
-        } else if (error.message.includes('transaction failed') || error.message.includes('execution reverted')) {
-          errorMessage = 'Transaction failed';
-          additionalInfo = 'This could be because the name is taken or there was a network issue. Please try again with a different name.';
+        const msg = error.message.toLowerCase();
+        
+        if (msg.includes('user rejected')) {
+          userError = 'Transaction was rejected';
+        } else if (msg.includes('insufficient funds')) {
+          userError = 'Insufficient ETH for gas + mint price';
+        } else if (msg.includes('name already taken') || msg.includes('name exists')) {
+          userError = 'This name is already taken. Please try a different name.';
+        } else if (msg.includes('alphanumeric') || msg.includes('invalid name')) {
+          userError = 'Names can only contain letters (A-Z, a-z) and numbers (0-9)';
+        } else if (msg.includes('timeout')) {
+          userError = 'Transaction is taking longer than expected. Please check your wallet or explorer for status.';
+        } else if (msg.includes('network') || msg.includes('chain')) {
+          userError = 'Please make sure you are connected to Unichain Sepolia';
         } else {
-          errorMessage = 'Unexpected error';
-          additionalInfo = 'Please try again. If the issue persists, the name might be taken or there might be network congestion.';
+          userError = 'Transaction failed. Please try again.';
         }
       }
       
       setModalStatus('error');
-      setError(`${errorMessage}${additionalInfo ? `\n${additionalInfo}` : ''}`);
+      setError(userError);
     } finally {
       setIsMinting(false);
     }

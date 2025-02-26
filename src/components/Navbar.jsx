@@ -385,19 +385,21 @@ const Navbar = () => {
           </ListItem>
 
           <ListItem 
+            component={Link} 
+            to="/leaderboard"
+            onClick={toggleDrawer(false)}
             sx={{
               borderRadius: '12px',
               mb: 1,
-              opacity: 0.5,
-              cursor: 'default',
+              backgroundColor: location.pathname === '/leaderboard' ? 'rgba(245, 13, 180, 0.04)' : 'transparent',
               '&:hover': {
-                backgroundColor: 'transparent',
+                backgroundColor: 'rgba(245, 13, 180, 0.08)',
               }
             }}
           >
             <ListItemIcon sx={{ 
               minWidth: 40,
-              color: '#666'
+              color: location.pathname === '/leaderboard' ? '#F50DB4' : '#666'
             }}>
               <LeaderboardIcon />
             </ListItemIcon>
@@ -407,7 +409,7 @@ const Navbar = () => {
                 '& .MuiListItemText-primary': {
                   fontSize: '0.95rem',
                   fontWeight: 600,
-                  color: '#111'
+                  color: location.pathname === '/leaderboard' ? '#F50DB4' : '#111'
                 }
               }}
             />
@@ -416,6 +418,7 @@ const Navbar = () => {
           <ListItem 
             sx={{
               borderRadius: '12px',
+              mb: 1,
               opacity: 0.5,
               cursor: 'default',
               '&:hover': {

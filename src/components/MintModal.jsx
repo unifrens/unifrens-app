@@ -5,25 +5,15 @@ import confetti from 'canvas-confetti';
 import CloseIcon from '@mui/icons-material/Close';
 
 // Function to preload image with retries
-const preloadImage = async (name, maxRetries = 10, retryDelay = 2000) => {
+const preloadImage = async (name) => {
   const url = `https://imgs.unifrens.com/${encodeURIComponent(name)}`;
   
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    try {
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      // If we get here, the image exists and is loaded
-      return true;
-    } catch (error) {
-      console.log(`Attempt ${attempt + 1}/${maxRetries} failed:`, error);
-      if (attempt < maxRetries - 1) {
-        await new Promise(resolve => setTimeout(resolve, retryDelay));
-      }
-    }
-  }
-  return false;
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(true);
+    img.onerror = () => resolve(false);
+    img.src = url;
+  });
 };
 
 const MintModal = ({ open, onClose, status, error, mintData, onRetry }) => {
