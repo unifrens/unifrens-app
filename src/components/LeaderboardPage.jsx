@@ -105,7 +105,13 @@ const LeaderboardPage = () => {
   useEffect(() => {
     const fetchLeaderboard = async () => {
       try {
-        const response = await fetch('/api/leaderboard/nfts');
+        const response = await fetch('https://imgs.unifrens.com/leaderboard/nfts', {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'Origin': 'https://www.unifrens.com'
+          }
+        });
         const data = await response.json();
         
         // First sort by weight (highest first), but put weight 0 at the end
