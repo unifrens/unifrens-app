@@ -7,7 +7,7 @@ import { unichainSepolia } from '../wallet';
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from '../contract';
 import AvatarGenerator from './AvatarGenerator';
 
-const ClaimOption = ({ title, description, amount, onClick, disabled, warning, details, effectAmount, redistributeAmount }) => (
+const ClaimOption = ({ title, description, amount, onClick, disabled, warning, details, effectAmount, redistributeAmount, customLabels = {} }) => (
   <Box sx={{
     p: 2.5,
     borderRadius: '16px',
@@ -122,7 +122,7 @@ const ClaimOption = ({ title, description, amount, onClick, disabled, warning, d
             color: '#4CAF50',
             mb: 0.25
           }}>
-            You'll Receive
+            {customLabels.receive || "You'll Receive"}
           </Typography>
           <Typography sx={{ 
             fontSize: '0.95rem',
@@ -179,7 +179,121 @@ const ClaimOption = ({ title, description, amount, onClick, disabled, warning, d
   </Box>
 );
 
-const ClaimModal = ({ open, onClose, token, onSuccess }) => {
+const VictoryClaimOption = ({ title, description, amount, onClick, disabled, details }) => (
+  <Box sx={{
+    p: 2.5,
+    borderRadius: '16px',
+    border: '1px solid rgba(245, 13, 180, 0.1)',
+    backgroundColor: 'white',
+    transition: 'all 0.2s ease-in-out',
+    cursor: disabled ? 'default' : 'pointer',
+    opacity: disabled ? 0.5 : 1,
+    '&:hover': disabled ? {} : {
+      borderColor: 'rgba(245, 13, 180, 0.2)',
+      backgroundColor: 'rgba(245, 13, 180, 0.02)',
+      transform: 'translateY(-2px)',
+      boxShadow: '0 4px 16px rgba(245, 13, 180, 0.08)'
+    }
+  }}>
+    <Box sx={{ 
+      display: 'flex',
+      alignItems: 'flex-start',
+      gap: 1,
+      mb: 1
+    }}>
+      <Typography sx={{ 
+        fontSize: '1rem',
+        fontWeight: 700,
+        color: '#111',
+        flex: 1
+      }}>
+        {title}
+      </Typography>
+      {details && (
+        <Tooltip 
+          title={details} 
+          arrow
+          placement="top"
+          sx={{ 
+            maxWidth: 300,
+            '& .MuiTooltip-tooltip': {
+              fontSize: '0.85rem',
+              padding: '8px 12px',
+              backgroundColor: 'rgba(0, 0, 0, 0.9)',
+              backdropFilter: 'blur(4px)'
+            }
+          }}
+        >
+          <InfoOutlinedIcon sx={{ 
+            color: '#666',
+            fontSize: '1rem',
+            cursor: 'help',
+            '&:hover': { color: '#F50DB4' }
+          }} />
+        </Tooltip>
+      )}
+    </Box>
+    
+    <Typography sx={{ 
+      fontSize: '0.85rem',
+      color: '#666',
+      mb: 1.5,
+      lineHeight: 1.6
+    }}>
+      {description}
+    </Typography>
+
+    <Box sx={{
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 0.5,
+      mt: 'auto',
+      pt: 1.5,
+      borderTop: '1px solid rgba(245, 13, 180, 0.05)'
+    }}>
+      <Typography sx={{ 
+        fontSize: '0.8rem',
+        color: '#666',
+        mb: 0.5
+      }}>
+        Contract Balance
+      </Typography>
+      <Typography sx={{ 
+        fontSize: '1rem',
+        color: '#666',
+        fontWeight: 500,
+        fontFamily: 'Space Grotesk'
+      }}>
+        {formatEther(amount || BigInt(0)).slice(0, 8)} ETH
+      </Typography>
+
+      <Button
+        variant="contained"
+        size="large"
+        onClick={onClick}
+        disabled={disabled}
+        sx={{ 
+          backgroundColor: '#F50DB4',
+          color: 'white',
+          fontSize: '0.85rem',
+          py: 0.75,
+          px: 2.5,
+          mt: 1.5,
+          borderRadius: '12px',
+          textTransform: 'none',
+          fontWeight: 500,
+          '&:hover': {
+            backgroundColor: '#d00a9b'
+          }
+        }}
+      >
+        {disabled ? 'Not Eligible' : 'Select'}
+      </Button>
+    </Box>
+  </Box>
+);
+
+const ClaimModal = ({ open, onClose, token, onSuccess, contractBalance }) => {
   const [claiming, setClaiming] = useState(false);
   const [selectedOption, setSelectedOption] = useState(null);
   const [error, setError] = useState('');
@@ -378,13 +492,6 @@ const ClaimModal = ({ open, onClose, token, onSuccess }) => {
     }
   };
 
-  // Reset retry count when modal closes
-  useEffect(() => {
-    if (!open) {
-      setRetryCount(0);
-    }
-  }, [open]);
-
   if (!token) return null;
 
   return (
@@ -556,6 +663,7 @@ const ClaimModal = ({ open, onClose, token, onSuccess }) => {
                 redistributeAmount={75}
                 onClick={() => handleClaim('redistribute')}
                 disabled={claiming && selectedOption !== 'redistribute'}
+                customLabels={{ receive: "You'll Retain" }}
               />
 
               <ClaimOption
@@ -570,16 +678,13 @@ const ClaimModal = ({ open, onClose, token, onSuccess }) => {
                 disabled={claiming && selectedOption !== 'hard'}
               />
 
-              <ClaimOption
-                title="Claim Victory"
+              <VictoryClaimOption
+                title="Claim Victory 🏆"
                 description="If you're the last active Fren standing (all other Frens have weight 0), you can claim the entire contract balance as the ultimate winner!"
-                warning="This is a one-time action that will also retire your Fren."
-                details="The ultimate endgame. If you've managed to outlast all other players and are the last active Fren, you can claim the entire remaining balance. This is the true victory condition of the game!"
-                amount={contractBalance || token.rewards}
-                effectAmount={100}
-                redistributeAmount={0}
+                details="The ultimate victory condition! When all other Frens have been retired (weight 0), the last active Fren can claim the entire remaining contract balance. This is the grand finale of the game - the true winner takes all!"
+                amount={contractBalance}
                 onClick={() => handleClaim('victory')}
-                disabled={claiming && selectedOption !== 'victory'}
+                disabled={true}
               />
             </Box>
           </>

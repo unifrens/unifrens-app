@@ -570,29 +570,6 @@ const FrensPage = () => {
           px: { xs: 2, sm: 3 }
         }}
       >
-        {/* Contract Redeployment Alert */}
-        <Alert 
-          severity="warning"
-          sx={{
-            mb: { xs: 3, sm: 4 },
-            borderRadius: '12px',
-            backgroundColor: 'rgba(255, 152, 0, 0.04)',
-            border: '1px solid rgba(255, 152, 0, 0.1)',
-            '& .MuiAlert-icon': {
-              color: '#FF9800',
-              marginTop: '2px'
-            }
-          }}
-        >
-          <Typography sx={{ 
-            fontSize: '0.95rem',
-            color: '#111',
-            lineHeight: 1.5
-          }}>
-            ⚠️ We've redeployed a new contract to fix math overflow issues. All previous Frens were reset. Please continue testing with new mints - thank you for your understanding!
-          </Typography>
-        </Alert>
-
         {/* Announcement Alert - Always show this */}
         {SHOW_LEADERBOARD_ANNOUNCEMENT && (
           <Alert 
@@ -1380,6 +1357,7 @@ const FrensPage = () => {
         onClose={handleClaimModalClose}
         token={selectedToken}
         onSuccess={refreshSingleNFT}
+        contractBalance={contractHealth.contractBalance}
       />
     </Box>
   );

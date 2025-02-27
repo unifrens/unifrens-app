@@ -9,45 +9,13 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 /**
  * @title Unichain Frens
- * @dev A dynamic NFT ecosystem where Unifrens compete in a unique economic game.
- * 
- * Game Mechanics:
- * 1. Each Unifren earns rewards from new mints and redistributions
- * 2. Earlier positions earn more through square root decay (1/sqrt(position))
- * 3. Players have three core strategies:
- *    - "Stay & Play": Withdraw 25% rewards, redistribute 75%
- *    - "Power-Up": Convert rewards to weight (max 1000×)
- *    - "Cash Out": Withdraw 75%, redistribute 25%, retire position
- * 
- * Victory Condition:
- * When only one active Fren remains (all others have weight 0),
- * that player can claim victory and receive the entire contract balance
- * as the ultimate winner of the game.
- * 
- * V5 Update: Added victory claim mechanic and standardized error handling
+ * @dev A dynamic NFT ecosystem where Unifrens collect and distribute dust over time.
+ * Each Unifren earns rewards from new mints, with earlier frens accumulating more
+ * through a quadratic distribution formula. Mint, name, and watch your Unifren thrive!
  */
  
 contract UnichainFrens is ERC721Enumerable, Ownable, ReentrancyGuard {
     using Strings for uint256;
-
-    // ============ Error Messages ============
-    
-    /// @dev Standard error messages for common conditions
-    string constant ERR_NOT_OWNER = "UNIFRENS: Not the owner";
-    string constant ERR_MAX_WEIGHT = "UNIFRENS: Max weight reached";
-    string constant ERR_NO_REWARDS = "UNIFRENS: No rewards available";
-    string constant ERR_MIN_REWARDS = "UNIFRENS: Insufficient rewards for redistribution";
-    string constant ERR_INSUFFICIENT_BALANCE = "UNIFRENS: Insufficient contract balance";
-    string constant ERR_POSITION_INACTIVE = "UNIFRENS: Position is inactive";
-    string constant ERR_POSITION_ALREADY_INACTIVE = "UNIFRENS: Position already inactive";
-    string constant ERR_INVALID_WEIGHT = "UNIFRENS: Weight must be between 1 and 100";
-    string constant ERR_INCORRECT_PRICE = "UNIFRENS: Incorrect mint price";
-    string constant ERR_NAME_LENGTH = "UNIFRENS: Name length must be between 1 and 16";
-    string constant ERR_NAME_FORMAT = "UNIFRENS: Name must be alphanumeric only";
-    string constant ERR_NAME_TAKEN = "UNIFRENS: Name already taken";
-    string constant ERR_WITHDRAWAL_TOO_SMALL = "UNIFRENS: Withdrawal amount too small";
-    string constant ERR_NO_FUNDS = "UNIFRENS: No funds available";
-    string constant ERR_NOT_LAST_ACTIVE = "UNIFRENS: Not the last active position";
 
     // ============ State Variables ============
 
@@ -63,8 +31,11 @@ contract UnichainFrens is ERC721Enumerable, Ownable, ReentrancyGuard {
     /// @dev Base amount of rewards needed for one weight point increase
     uint256 public constant BASE_WEIGHT_INCREASE = 0.001 ether;
 
-    /// @dev Minimum rewards required for redistribution (0.0009 ETH)
-    uint256 public constant MIN_REDISTRIBUTE_AMOUNT = 0.0009 ether;
+    /// @dev Minimum rewards required for soft withdraw (0.0001 ETH)
+    uint256 public constant MIN_SOFT_WITHDRAW = 0.0001 ether;
+
+    /// @dev Minimum rewards required for redistribute (0.00001 ETH)
+    uint256 public constant MIN_REDISTRIBUTE = 0.00001 ether;
 
     /// @dev Total rewards distributed in the system
     uint256 public totalRewards;
@@ -93,9 +64,6 @@ contract UnichainFrens is ERC721Enumerable, Ownable, ReentrancyGuard {
     /// @dev Mapping of normalized (lowercase) name to whether it's taken
     mapping(string => bool) private _normalizedNameTaken;
 
-    /// @dev Emergency pause flag
-    bool public paused;
-
     // ============ Events ============
     
     /// @dev Emitted when a new position is minted with a weight
@@ -104,24 +72,21 @@ contract UnichainFrens is ERC721Enumerable, Ownable, ReentrancyGuard {
     /// @dev Emitted when rewards are claimed
     /// @param tokenId The ID of the position
     /// @param amount The amount of rewards claimed
-    /// @param withdrawalType 0 for soft withdraw, 1 for hard withdraw, 2 for redistribute, 3 for victory
+    /// @param withdrawalType 0 for soft withdraw, 1 for hard withdraw
     event RewardsClaimed(uint256 indexed tokenId, uint256 amount, uint8 withdrawalType);
 
+    /// @dev Emitted when a position is burned
+    event PositionBurned(uint256 indexed tokenId);
+
+    /// @dev Emitted when victory is claimed
+    event VictoryClaimed(uint256 indexed tokenId, uint256 amount);
+
     /// @dev Emitted when a position's weight changes
-    event WeightUpdated(uint256 indexed tokenId, uint256 oldWeight, uint256 newWeight);
-
-    /// @dev Emitted when global rewards are updated
-    event GlobalRewardsUpdated(uint256 fee, uint256 newRewardsPerWeightPoint, bool isNewMoney);
-
-    /// @dev Emitted when emergency pause state changes
-    event EmergencyPauseSet(bool paused);
-
-    // ============ Modifiers ============
-
-    modifier whenNotPaused() {
-        require(!paused, "Contract is paused");
-        _;
-    }
+    /// @param tokenId The ID of the position
+    /// @param oldWeight Previous weight of the position
+    /// @param newWeight New weight of the position
+    /// @param reason 0 for soft withdraw, 1 for redistribute
+    event WeightUpdated(uint256 indexed tokenId, uint256 oldWeight, uint256 newWeight, uint8 reason);
 
     // ============ Constructor ============
 
@@ -129,8 +94,8 @@ contract UnichainFrens is ERC721Enumerable, Ownable, ReentrancyGuard {
      * @dev Initializes the contract and mints position #1 to the deployer with max weight
      */
     constructor() ERC721("Unichain Frens", "UNIFRENS") Ownable(msg.sender) {
-        // Mint the first position to the deployer with weight 100 and name "Dev"
-        _mintWithWeight(msg.sender, 1, 100, "Dev", _toLower("Dev"));
+        // Mint the first position to the deployer with weight 1 and name "Dev"
+        _mintWithWeight(msg.sender, 1, 1, "Dev", _toLower("Dev"));
     }
 
     /**
@@ -184,13 +149,13 @@ contract UnichainFrens is ERC721Enumerable, Ownable, ReentrancyGuard {
      * @param weight The weight for the position (1-100)
      * @param name The name for the Unifren (alphanumeric, 1-16 chars)
      */
-    function mint(uint256 weight, string memory name) external payable nonReentrant whenNotPaused {
-        require(weight >= 1 && weight <= MAX_MINT_WEIGHT, ERR_INVALID_WEIGHT);
-        require(msg.value == mintPrice * weight, ERR_INCORRECT_PRICE);
+    function mint(uint256 weight, string memory name) external payable nonReentrant {
+        require(weight >= 1 && weight <= MAX_MINT_WEIGHT, "Weight must be between 1 and 100");
+        require(msg.value == mintPrice * weight, "Incorrect mint price");
         
         // Split name validation for better error messages
         bytes memory nameBytes = bytes(name);
-        require(nameBytes.length > 0 && nameBytes.length <= 16, ERR_NAME_LENGTH);
+        require(nameBytes.length > 0 && nameBytes.length <= 16, "Name length must be between 1 and 16");
         
         // Check characters
         for (uint i = 0; i < nameBytes.length; i++) {
@@ -199,13 +164,13 @@ contract UnichainFrens is ERC721Enumerable, Ownable, ReentrancyGuard {
                 (char >= 0x30 && char <= 0x39) || // 0-9
                 (char >= 0x41 && char <= 0x5A) || // A-Z
                 (char >= 0x61 && char <= 0x7A),   // a-z
-                ERR_NAME_FORMAT
+                "Name must be alphanumeric only"
             );
         }
         
         // Check uniqueness
         string memory normalizedName = _toLower(name);
-        require(!_normalizedNameTaken[normalizedName], ERR_NAME_TAKEN);
+        require(!_normalizedNameTaken[normalizedName], "Name already taken");
 
         uint256 newPosition = totalSupply() + 1;
         _mintWithWeight(msg.sender, newPosition, weight, name, normalizedName);
@@ -216,7 +181,6 @@ contract UnichainFrens is ERC721Enumerable, Ownable, ReentrancyGuard {
 
     /**
      * @dev Internal function to mint a position with a weight and name
-     * V4: Updated to use square root decay for more balanced distribution
      */
     function _mintWithWeight(
         address to, 
@@ -227,8 +191,8 @@ contract UnichainFrens is ERC721Enumerable, Ownable, ReentrancyGuard {
     ) internal {
         _mint(to, tokenId);
         
-        // Calculate and store position's weight points using square root decay
-        uint256 positionWeight = 1e18 / sqrt(tokenId);
+        // Calculate and store position's weight points
+        uint256 positionWeight = 1e18 / (tokenId**2);
         uint256 weightPoints = positionWeight * weight;
         
         positionWeights[tokenId] = weight;
@@ -249,9 +213,6 @@ contract UnichainFrens is ERC721Enumerable, Ownable, ReentrancyGuard {
      * @param isNewMoney Whether this is new money (true) or redistribution (false)
      */
     function updateGlobalRewards(uint256 fee, bool isNewMoney) private {
-        require(fee > 0, "Fee must be greater than 0");
-        require(fee <= address(this).balance, "Fee exceeds contract balance");
-
         if (totalWeightPoints > 0) {
             // Use total weight points directly since position is already excluded
             uint256 adjustedTotalWeightPoints = totalWeightPoints;
@@ -275,8 +236,6 @@ contract UnichainFrens is ERC721Enumerable, Ownable, ReentrancyGuard {
         if (isNewMoney) {
             totalRewards += fee;
         }
-        
-        emit GlobalRewardsUpdated(fee, rewardsPerWeightPoint, isNewMoney);
     }
 
     /**
@@ -285,7 +244,8 @@ contract UnichainFrens is ERC721Enumerable, Ownable, ReentrancyGuard {
      * @return The amount of pending rewards
      */
     function getPendingRewards(uint256 tokenId) public view returns (uint256) {
-        if (!_exists(tokenId)) return 0;
+        // Check if token exists and hasn't been burned
+        if (!_exists(tokenId) || ownerOf(tokenId) == address(0)) return 0;
         if (positionWeightPoints[tokenId] == 0) return 0;
         
         // Calculate rewards and ensure they don't exceed contract balance
@@ -311,13 +271,12 @@ contract UnichainFrens is ERC721Enumerable, Ownable, ReentrancyGuard {
      * @param tokenId The position ID to redistribute rewards from
      * @return newWeight The new weight of the position after increase
      */
-    function redistribute(uint256 tokenId) external nonReentrant whenNotPaused returns (uint256 newWeight) {
-        require(ownerOf(tokenId) == msg.sender, ERR_NOT_OWNER);
-        require(positionWeights[tokenId] < MAX_WEIGHT, ERR_MAX_WEIGHT);
+    function redistribute(uint256 tokenId) external nonReentrant returns (uint256 newWeight) {
+        require(ownerOf(tokenId) == msg.sender, "Not the owner");
+        require(positionWeights[tokenId] < MAX_WEIGHT, "Max weight reached");
         
         uint256 pendingRewards = getPendingRewards(tokenId);
-        require(pendingRewards > 0, ERR_NO_REWARDS);
-        require(pendingRewards >= MIN_REDISTRIBUTE_AMOUNT, ERR_MIN_REWARDS);
+        require(pendingRewards >= MIN_REDISTRIBUTE, "Insufficient rewards to redistribute");
 
         // Calculate redistribution amount (75%) and kept amount (25%)
         uint256 redistributeAmount = (pendingRewards * 75) / 100;
@@ -325,6 +284,8 @@ contract UnichainFrens is ERC721Enumerable, Ownable, ReentrancyGuard {
         
         // Calculate and update weight increase based on total pending rewards
         uint256 weightIncrease = calculateWeightIncrease(pendingRewards);
+        if (weightIncrease == 0) weightIncrease = 1; // Ensure minimum increase of 1
+        
         uint256 oldWeight = positionWeights[tokenId];
         newWeight = oldWeight + weightIncrease;
         if (newWeight > MAX_WEIGHT) {
@@ -360,8 +321,10 @@ contract UnichainFrens is ERC721Enumerable, Ownable, ReentrancyGuard {
             lastRewardsPerWeightPoint[tokenId] = rewardsPerWeightPoint - keptRewardsPerPoint;
         }
         
+        // Emit events
+        emit WeightUpdated(tokenId, oldWeight, newWeight, 1); // 1 for redistribute
         emit RewardsClaimed(tokenId, 0, 2); // 2 for redistribute, amount is 0 since nothing is claimed
-        emit WeightUpdated(tokenId, oldWeight, newWeight);
+        
         return newWeight;
     }
 
@@ -369,23 +332,20 @@ contract UnichainFrens is ERC721Enumerable, Ownable, ReentrancyGuard {
      * @dev Calculates the weight increase based on pending rewards
      * Formula creates a logarithmic curve making it harder to reach max weight
      * @param pendingRewards The amount of pending rewards
-     * @return The weight increase amount (always an integer)
+     * @return The weight increase amount
      */
     function calculateWeightIncrease(uint256 pendingRewards) public pure returns (uint256) {
-        // First divide by BASE_WEIGHT_INCREASE to get equivalent weight points
-        // This maintains the same ratio as minting (0.001 ETH per weight point)
-        uint256 baseIncrease = pendingRewards / BASE_WEIGHT_INCREASE;
-        
-        // Apply 50% curve but ensure we round up to nearest integer
-        // Add 1e4-1 to round up division
-        uint256 scaledIncrease = ((baseIncrease * 1e4) + (2e4 - 1)) / 2e4;
-        
+        // We use a logarithmic formula to make it increasingly harder to gain weight
+        // sqrt(pendingRewards / BASE_WEIGHT_INCREASE)
+        uint256 ratio = (pendingRewards * 1e18) / BASE_WEIGHT_INCREASE;
+        uint256 increase = sqrt(ratio) / 1e9; // Divide by 1e9 to get a reasonable increase
+
         // Ensure minimum increase of 1 if there are any rewards
-        if (pendingRewards > 0 && scaledIncrease == 0) {
+        if (pendingRewards > 0 && increase == 0) {
             return 1;
         }
 
-        return scaledIncrease;
+        return increase;
     }
 
     /**
@@ -408,35 +368,62 @@ contract UnichainFrens is ERC721Enumerable, Ownable, ReentrancyGuard {
      * @dev Allows position owner to withdraw 25% of accumulated rewards
      * The remaining 75% is redistributed to active positions
      * This is a "soft" withdrawal that maintains the position's weight for future earnings
+     * Additionally increases weight by half the amount that redistribute would provide
      * @param tokenId The position ID to withdraw rewards from
+     * @return newWeight The new weight of the position after increase
      */
-    function softWithdraw(uint256 tokenId) external nonReentrant {
-        require(ownerOf(tokenId) == msg.sender, ERR_NOT_OWNER);
-        require(positionWeights[tokenId] > 0, ERR_POSITION_INACTIVE);
+    function softWithdraw(uint256 tokenId) external nonReentrant returns (uint256 newWeight) {
+        require(ownerOf(tokenId) == msg.sender, "Not the owner");
+        require(positionWeights[tokenId] < MAX_WEIGHT, "Max weight reached");
         
         uint256 pendingRewards = getPendingRewards(tokenId);
-        require(pendingRewards > 0, ERR_NO_REWARDS);
+        require(pendingRewards >= MIN_SOFT_WITHDRAW, "Position not matured");
 
         // Calculate withdrawal and redistribution amounts
-        uint256 withdrawAmount = (pendingRewards * 25) / 100;
-        uint256 redistributeAmount = pendingRewards - withdrawAmount;
+        uint256 withdrawAmount = (pendingRewards * 25) / 100; // 25% to withdrawer
+        uint256 redistributeAmount = pendingRewards - withdrawAmount; // 75% to redistribute
 
-        require(address(this).balance >= withdrawAmount, ERR_INSUFFICIENT_BALANCE);
-        require(withdrawAmount > 0, ERR_WITHDRAWAL_TOO_SMALL);
+        // Add solvency check
+        require(address(this).balance >= withdrawAmount, "Insufficient contract balance");
 
-        // Update position's reward tracking
+        // Calculate and update weight increase (half of what redistribute would give)
+        uint256 weightIncrease = (calculateWeightIncrease(pendingRewards) + 1) / 2; // Round up division
+        if (weightIncrease == 0) weightIncrease = 1; // Ensure minimum increase of 1
+        
+        uint256 oldWeight = positionWeights[tokenId];
+        newWeight = oldWeight + weightIncrease;
+        if (newWeight > MAX_WEIGHT) {
+            newWeight = MAX_WEIGHT;
+        }
+
+        // Update position's weight and weight points
+        uint256 oldWeightPoints = positionWeightPoints[tokenId];
+        uint256 newWeightPoints = (1e18 / (tokenId**2)) * newWeight;
+        
+        // Update position state
+        positionWeights[tokenId] = newWeight;
+        positionWeightPoints[tokenId] = newWeightPoints;
+        
+        // Temporarily reduce total weight points to exclude this position
+        totalWeightPoints -= oldWeightPoints;
+        
+        // Update checkpoint to current global rewards
         lastRewardsPerWeightPoint[tokenId] = rewardsPerWeightPoint;
-        claimedRewards[tokenId] += pendingRewards;
         
         // Redistribute 75% back to the reward pool (not new money)
         if (redistributeAmount > 0 && totalSupply() > 1) {
             updateGlobalRewards(redistributeAmount, false);
         }
         
+        // Add back the position's new weight points
+        totalWeightPoints += newWeightPoints;
+
+        // Emit events
+        emit WeightUpdated(tokenId, oldWeight, newWeight, 0); // 0 for soft withdraw
         emit RewardsClaimed(tokenId, withdrawAmount, 0);
-        // Use call instead of transfer for better compatibility
-        (bool success, ) = payable(msg.sender).call{value: withdrawAmount}("");
-        require(success, "Transfer failed");
+        
+        payable(msg.sender).transfer(withdrawAmount);
+        return newWeight;
     }
 
     /**
@@ -446,18 +433,17 @@ contract UnichainFrens is ERC721Enumerable, Ownable, ReentrancyGuard {
      * @param tokenId The position ID to deactivate and withdraw from
      */
     function hardWithdraw(uint256 tokenId) external nonReentrant {
-        require(ownerOf(tokenId) == msg.sender, ERR_NOT_OWNER);
-        require(positionWeights[tokenId] > 0, ERR_POSITION_ALREADY_INACTIVE);
+        require(ownerOf(tokenId) == msg.sender, "Not the owner");
         
         uint256 pendingRewards = getPendingRewards(tokenId);
-        require(pendingRewards > 0, ERR_NO_REWARDS);
+        require(pendingRewards > 0, "No rewards available");
 
         // Calculate withdrawal and redistribution amounts
         uint256 withdrawAmount = (pendingRewards * 75) / 100;
         uint256 redistributeAmount = pendingRewards - withdrawAmount;
 
-        require(address(this).balance >= withdrawAmount, ERR_INSUFFICIENT_BALANCE);
-        require(withdrawAmount > 0, ERR_WITHDRAWAL_TOO_SMALL);
+        // Add solvency check
+        require(address(this).balance >= withdrawAmount, "Insufficient contract balance");
 
         // Update total weight points before setting weight to 0
         totalWeightPoints -= positionWeightPoints[tokenId];
@@ -473,32 +459,59 @@ contract UnichainFrens is ERC721Enumerable, Ownable, ReentrancyGuard {
         }
         
         emit RewardsClaimed(tokenId, withdrawAmount, 1);
-        // Use call instead of transfer for better compatibility
-        (bool success, ) = payable(msg.sender).call{value: withdrawAmount}("");
-        require(success, "Transfer failed");
+        payable(msg.sender).transfer(withdrawAmount);
     }
 
     // ============ Admin Functions ============
-
-    /// @dev Sets the emergency pause state
-    function setPaused(bool _paused) external onlyOwner {
-        paused = _paused;
-        emit EmergencyPauseSet(_paused);
-    }
 
     /**
      * @dev Allows contract owner to withdraw excess balance
      * This should only be used for funds not allocated as rewards
      */
-    function withdrawContractBalance() external onlyOwner whenNotPaused {
+    function withdrawContractBalance() external onlyOwner {
         uint256 balance = address(this).balance;
-        require(balance > 0, ERR_NO_FUNDS);
-        // Use call instead of transfer for better compatibility
-        (bool success, ) = payable(owner()).call{value: balance}("");
-        require(success, "Transfer failed");
+        require(balance > 0, "No funds available");
+        payable(owner()).transfer(balance);
     }
 
     // ============ View Functions ============
+
+    /**
+     * @dev Checks if a position can claim victory by verifying it's the last active position
+     * @param tokenId The position ID to check for victory eligibility
+     * @return canClaim Whether victory can be claimed
+     * @return activePositions Number of positions with non-zero weight
+     * @return totalPositions Total number of positions in existence
+     */
+    function canClaimVictory(uint256 tokenId) public view returns (
+        bool canClaim,
+        uint256 activePositions,
+        uint256 totalPositions
+    ) {
+        require(_exists(tokenId), "Token does not exist");
+        
+        // Position must have non-zero weight to claim
+        if (positionWeights[tokenId] == 0) {
+            return (false, 0, totalSupply());
+        }
+        
+        // Count active positions
+        activePositions = 0;
+        totalPositions = totalSupply();
+        for (uint256 i = 1; i <= totalPositions; i++) {
+            if (positionWeights[i] > 0) {
+                activePositions++;
+                // If we find more than one active position, victory cannot be claimed
+                if (activePositions > 1) {
+                    return (false, activePositions, totalPositions);
+                }
+            }
+        }
+        
+        // Victory can be claimed if this is the only active position
+        canClaim = (activePositions == 1 && positionWeights[tokenId] > 0);
+        return (canClaim, activePositions, totalPositions);
+    }
 
     /**
      * @dev View function to calculate the mint price for a given weight
@@ -506,7 +519,7 @@ contract UnichainFrens is ERC721Enumerable, Ownable, ReentrancyGuard {
      * @return The price in wei to mint with this weight
      */
     function getMintPrice(uint256 weight) public view returns (uint256) {
-        require(weight >= 1 && weight <= MAX_MINT_WEIGHT, ERR_INVALID_WEIGHT);
+        require(weight >= 1 && weight <= MAX_MINT_WEIGHT, "Weight must be between 1 and 100");
         return mintPrice * weight;
     }
 
@@ -570,34 +583,37 @@ contract UnichainFrens is ERC721Enumerable, Ownable, ReentrancyGuard {
     // ============ NFT Metadata ============
 
     /**
-     * @dev Generates the attributes portion of the metadata
+     * @dev Calculates the rarity tier based on weight
+     */
+    function _getRarityTier(uint256 weight) internal pure returns (string memory) {
+        if (weight >= 101) return "Legendary";
+        if (weight >= 75) return "Epic";
+        if (weight >= 50) return "Rare";
+        if (weight >= 25) return "Uncommon";
+        return "Common";
+    }
+
+    /**
+     * @dev Generates all attributes for the token metadata
      */
     function _generateAttributes(
         uint256 weight,
         uint256 positionMultiplier,
-        uint256 pendingRewards,
-        uint256 totalClaimed,
         bool isActive
     ) internal pure returns (string memory) {
         return string(
             abi.encodePacked(
-                '{"trait_type": "Weight", "value": "',
+                '[{"display_type": "number", "trait_type": "Weight", "value": ',
                 weight.toString(),
-                '", "max_value": ',
+                ', "max_value": ',
                 MAX_WEIGHT.toString(),
-                '}, ',
-                '{"trait_type": "Position Multiplier", "value": "',
+                '}, {"display_type": "boost_percentage", "trait_type": "Position Multiplier", "value": ',
                 (positionMultiplier / 1e16).toString(),
-                '%"}, ',
-                '{"trait_type": "Pending Rewards", "value": "',
-                (pendingRewards / 1e18).toString(),
-                ' ETH"}, ',
-                '{"trait_type": "Total Claimed", "value": "',
-                (totalClaimed / 1e18).toString(),
-                ' ETH"}, ',
-                '{"trait_type": "Status", "value": "',
-                isActive ? "Active" : "Inactive",
-                '"}'
+                '}, {"trait_type": "Rarity Tier", "value": "',
+                _getRarityTier(weight),
+                '"}, {"trait_type": "Status", "value": "',
+                isActive ? "Active" : "Retired",
+                '"}]'
             )
         );
     }
@@ -610,19 +626,13 @@ contract UnichainFrens is ERC721Enumerable, Ownable, ReentrancyGuard {
     function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
         if (!_exists(tokenId)) revert("ERC721: URI query for nonexistent token");
         
-        (uint256 weight, uint256 positionMultiplier, uint256 pendingRewards, uint256 totalClaimed, bool isActive) = getTokenInfo(tokenId);
+        (uint256 weight, uint256 positionMultiplier, , , bool isActive) = getTokenInfo(tokenId);
         
         string memory name = bytes(unifrenNames[tokenId]).length > 0 
             ? unifrenNames[tokenId] 
             : string(abi.encodePacked("Unifren #", tokenId.toString()));
 
-        string memory attributes = _generateAttributes(
-            weight,
-            positionMultiplier,
-            pendingRewards,
-            totalClaimed,
-            isActive
-        );
+        string memory attributes = _generateAttributes(weight, positionMultiplier, isActive);
 
         string memory json = Base64.encode(
             bytes(
@@ -633,9 +643,9 @@ contract UnichainFrens is ERC721Enumerable, Ownable, ReentrancyGuard {
                         '", "description": "Unifrens live in every wallet. Unlock them and name them. They feed on ones and zeros leaving behind dust for their owner. Visit Unifrens.com to learn more.", ',
                         '"image": "',
                         string(abi.encodePacked("https://imgs.unifrens.com/", unifrenNames[tokenId])),
-                        '", "attributes": [',
+                        '", "attributes": ',
                         attributes,
-                        ']}'
+                        '}'
                     )
                 )
             )
@@ -657,43 +667,86 @@ contract UnichainFrens is ERC721Enumerable, Ownable, ReentrancyGuard {
     /// @dev Fallback function in case receive() is not matched
     fallback() external payable {}
 
-    // ============ Victory Claim Function ============
+    /**
+     * @dev Hook that is called before any token transfer. This includes minting.
+     */
+    function _beforeTokenTransfer(
+        address /* from */,
+        address /* to */,
+        uint256 /* firstTokenId */,
+        uint256 /* batchSize */
+    ) internal virtual {
+        // No special handling needed anymore since burn is handled separately
+    }
 
     /**
-     * @dev Allows the owner of the last active position to claim all remaining funds
-     * This is only possible when all other positions have weight 0
-     * @param tokenId The position ID claiming victory
+     * @dev "Burns" a position by transferring it to the burn address and setting its weight to 0
+     * The token still exists but can no longer earn rewards
+     * @param tokenId The ID of the position to burn
      */
-    function claimVictory(uint256 tokenId) external nonReentrant whenNotPaused {
-        require(ownerOf(tokenId) == msg.sender, ERR_NOT_OWNER);
-        require(positionWeights[tokenId] > 0, ERR_POSITION_INACTIVE);
+    function burn(uint256 tokenId) external {
+        require(ownerOf(tokenId) == msg.sender || msg.sender == owner(), "Not authorized");
         
-        // Check if this is the only active position
-        uint256 activeCount = 0;
-        uint256 supply = totalSupply();
-        
-        for (uint256 i = 1; i <= supply; i++) {
-            if (positionWeights[i] > 0) {
-                activeCount++;
-                if (activeCount > 1) {
-                    revert(ERR_NOT_LAST_ACTIVE);
-                }
-            }
+        // Update total weight points before setting weight to 0
+        uint256 oldWeightPoints = positionWeightPoints[tokenId];
+        if (oldWeightPoints > 0) {
+            totalWeightPoints -= oldWeightPoints;
+            positionWeightPoints[tokenId] = 0;
+            positionWeights[tokenId] = 0;
         }
         
-        // If we got here, this is the only active position
+        // Transfer to burn address instead of burning
+        _transfer(msg.sender, address(1), tokenId);
+        
+        emit PositionBurned(tokenId);
+    }
+
+    /**
+     * @dev Checks if a position is the last active position
+     * @param tokenId The position ID to check
+     * @return bool Whether this position is victorious
+     */
+    function _checkVictoryCondition(uint256 tokenId) internal view returns (bool) {
+        if (positionWeights[tokenId] == 0) return false;
+        
+        uint256 supply = totalSupply();
+        for (uint256 i = 1; i <= supply; i++) {
+            // Skip the position we're checking
+            if (i == tokenId) continue;
+            // If any other position has weight, victory condition not met
+            if (positionWeights[i] > 0) return false;
+        }
+        return true;
+    }
+
+    /**
+     * @dev Claims victory rewards when all other positions have weight 0
+     * This allows the last active position to claim the entire contract balance
+     * @param tokenId The position ID to claim victory for
+     */
+    function claimVictory(uint256 tokenId) external nonReentrant {
+        require(ownerOf(tokenId) == msg.sender, "Not the owner");
+        require(_checkVictoryCondition(tokenId), "Victory condition not met");
+        
+        // Get contract balance
         uint256 balance = address(this).balance;
-        require(balance > 0, ERR_NO_FUNDS);
+        require(balance > 0, "No rewards to claim");
         
-        // Update state before transfer
-        positionWeights[tokenId] = 0;
-        positionWeightPoints[tokenId] = 0;
-        totalWeightPoints = 0;
+        // Zero out the position's state
+        uint256 oldWeightPoints = positionWeightPoints[tokenId];
+        if (oldWeightPoints > 0) {
+            totalWeightPoints -= oldWeightPoints;
+            positionWeightPoints[tokenId] = 0;
+            positionWeights[tokenId] = 0;
+        }
         
-        // Transfer entire balance
-        emit RewardsClaimed(tokenId, balance, 3); // 3 for victory claim
-        // Use call instead of transfer for better compatibility
-        (bool success, ) = payable(msg.sender).call{value: balance}("");
-        require(success, "Transfer failed");
+        // Update claimed rewards
+        claimedRewards[tokenId] += balance;
+        
+        // Emit victory event
+        emit VictoryClaimed(tokenId, balance);
+        
+        // Transfer entire balance to winner
+        payable(msg.sender).transfer(balance);
     }
 }

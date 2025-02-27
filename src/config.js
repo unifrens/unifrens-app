@@ -2,8 +2,8 @@
 export const APP_CONFIG = {
   MAINTENANCE_MODE: false, // Global maintenance mode toggle
   MAINTENANCE_MESSAGE: {
-    title: "Contract Upgrade in Progress",
-    description: "We're currently deploying a new version of the Frens contract. The app will be back online shortly. Thank you for your patience!"
+    title: "Emergency Maintenance",
+    description: "We're currently fixing critical issues with the contract and app integration. All features are temporarily disabled for your safety. Please check back soon. Thank you for your patience!"
   },
   SHOW_LEADERBOARD_ANNOUNCEMENT: true, // Control leaderboard announcement visibility
   // Add other global configuration options here as needed
