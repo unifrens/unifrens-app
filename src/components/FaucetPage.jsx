@@ -110,7 +110,7 @@ const FaucetPage = () => {
               {FAUCET_ADDRESS}
             </Box>
             <MuiLink 
-              href={`https://sepolia.uniscan.xyz/account/${FAUCET_ADDRESS}`}
+              href={`https://sepolia.uniscan.xyz/address/${FAUCET_ADDRESS}`}
               target="_blank"
               sx={{
                 fontSize: { xs: '0.8rem', sm: '0.9rem' },
