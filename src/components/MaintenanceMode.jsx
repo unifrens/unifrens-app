@@ -6,7 +6,6 @@ import AvatarGenerator from './AvatarGenerator';
 import { HexColorPicker } from 'react-colorful';
 import logo from '../assets/unifrens-logo-v2.png';
 import ReactDOMServer from 'react-dom/server';
-import discordIcon from '/discord-icon.svg';
 import xIcon from '/x-icon.svg';
 import githubIcon from '../assets/github-142-svgrepo-com.svg';
 import gitbookIcon from '../assets/gitbook-svgrepo-com.svg';
@@ -365,23 +364,6 @@ const MaintenanceMode = ({ customTitle, customDescription }) => {
         justifyContent: 'center',
         mb: 6
       }}>
-        <MuiLink href="https://discord.gg/nrQezVny" target="_blank" sx={{ display: 'flex', alignItems: 'center', height: 22 }}>
-          <Box 
-            component="img" 
-            src={discordIcon} 
-            sx={{ 
-              width: 22,
-              height: 22,
-              opacity: 0.8,
-              transition: 'all 0.2s',
-              filter: 'invert(36%) sepia(71%) saturate(6010%) hue-rotate(308deg) brightness(97%) contrast(101%)',
-              '&:hover': {
-                opacity: 1,
-                transform: 'scale(1.05)'
-              }
-            }} 
-          />
-        </MuiLink>
         <MuiLink href="https://x.com/unichainfrens" target="_blank" sx={{ display: 'flex', alignItems: 'center', height: 22 }}>
           <Box 
             component="img" 

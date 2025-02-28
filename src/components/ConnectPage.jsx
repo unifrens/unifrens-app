@@ -5,7 +5,6 @@ import Navbar from './Navbar';
 import bgPattern from '../assets/Unichain-Pattern-3.png';
 import { APP_CONFIG } from '../config';
 import MaintenanceMode from './MaintenanceMode';
-import discordIcon from '../assets/4691356_discord_icon.svg';
 import xIcon from '../assets/11053970_x_logo_twitter_new_brand_icon.svg';
 import githubIcon from '../assets/github-142-svgrepo-com.svg';
 import gitbookIcon from '../assets/gitbook-svgrepo-com.svg';
@@ -369,25 +368,6 @@ const ConnectPage = ({ error }) => {
                 gap: 2,
                 mt: { xs: 1, sm: 2 }
               }}>
-                <IconButton
-                  component="a"
-                  href="https://discord.gg/unichain"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  sx={{
-                    width: { xs: 44, sm: 40 },
-                    height: { xs: 44, sm: 40 },
-                    backgroundColor: 'white',
-                    border: '1px solid rgba(245, 13, 180, 0.1)',
-                    borderRadius: '12px',
-                    '&:hover': {
-                      backgroundColor: 'rgba(245, 13, 180, 0.04)'
-                    }
-                  }}
-                >
-                  <img src={discordIcon} alt="Discord" style={{ width: 20, height: 20 }} />
-                </IconButton>
-
                 <IconButton
                   component="a"
                   href="https://x.com/unichainfrens"

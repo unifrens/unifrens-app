@@ -16,6 +16,7 @@ import MaintenanceMode from './MaintenanceMode';
 import { buttonStyles, cardStyles, containerStyles } from '../styles/theme';
 import LeaderboardAnnouncement from './common/announcements/LeaderboardAnnouncement';
 import AirdropAnnouncement from './common/announcements/AirdropAnnouncement';
+import DiscordWarningAnnouncement from './common/announcements/DiscordWarningAnnouncement';
 import FrenViewModal from './FrenViewModal';
 import { preloadNFTImage, getCachedNFTImage } from '../utils/imageCache';
 
@@ -624,6 +625,9 @@ const FrensPage = () => {
           px: { xs: 2, sm: 3 }
         }}
       >
+        {/* Discord Warning Announcement */}
+        <DiscordWarningAnnouncement />
+
         {/* Leaderboard Announcement */}
         {SHOW_LEADERBOARD_ANNOUNCEMENT && <LeaderboardAnnouncement />}
 

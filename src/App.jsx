@@ -338,6 +338,7 @@ function App() {
             gap: 1.5
           }}>
             <Box sx={{ display: 'flex', gap: 2.5, alignItems: 'center' }}>
+              {/* Discord link temporarily removed
               <MuiLink href="https://discord.gg/nrQezVny" target="_blank" sx={{ display: 'flex', alignItems: 'center', height: 22 }}>
                 <Box 
                   component="img" 
@@ -355,6 +356,7 @@ function App() {
                   }} 
                 />
               </MuiLink>
+              */}
               <MuiLink href="https://x.com/unichainfrens" target="_blank" sx={{ display: 'flex', alignItems: 'center', height: 22 }}>
                 <Box 
                   component="img" 

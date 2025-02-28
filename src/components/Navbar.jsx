@@ -17,7 +17,6 @@ import { useState, useEffect } from 'react';
 import { createPublicClient, http, formatEther } from 'viem';
 import { unichainSepolia } from '../wallet';
 import logo from '../assets/unifrens-logo-v2.png';
-import discordIcon from '../assets/4691356_discord_icon.svg';
 import xIcon from '../assets/11053970_x_logo_twitter_new_brand_icon.svg';
 import githubIcon from '../assets/github-142-svgrepo-com.svg';
 import gitbookIcon from '../assets/gitbook-svgrepo-com.svg';
@@ -636,92 +635,68 @@ const Navbar = () => {
               flexDirection: 'column',
               gap: 2
             }}>
-              {/* Social Links */}
-              <Box sx={{ 
-                display: 'flex',
-                justifyContent: 'center',
-                gap: 3
-              }}>
-                <MuiLink 
-                  href="https://discord.gg/nrQezVny" 
+              {/* Social Links - Mobile */}
+              <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+                {/* Discord link temporarily removed
+                <MuiLink
+                  href="https://discord.gg/nrQezVny"
                   target="_blank"
                   sx={{
                     display: 'flex',
                     alignItems: 'center',
-                    opacity: 0.6,
-                    transition: 'opacity 0.2s',
-                    '&:hover': {
-                      opacity: 1
-                    }
+                    height: 22
                   }}
                 >
-                  <Box 
-                    component="img" 
-                    src={discordIcon} 
-                    sx={{ width: 24 }} 
+                  <Box
+                    component="img"
+                    src={discordIcon}
                     alt="Discord"
+                    sx={{
+                      width: 22,
+                      height: 22,
+                      opacity: 0.8,
+                      transition: 'all 0.2s',
+                      filter: 'invert(36%) sepia(71%) saturate(6010%) hue-rotate(308deg) brightness(97%) contrast(101%)',
+                      '&:hover': {
+                        opacity: 1,
+                        transform: 'scale(1.05)'
+                      }
+                    }}
                   />
                 </MuiLink>
-                <MuiLink 
-                  href="https://x.com/unichainfrens" 
+                */}
+              </Box>
+
+              {/* Social Links - Desktop */}
+              <Box sx={{ display: { xs: 'none', md: 'flex' }, gap: 2, alignItems: 'center' }}>
+                {/* Discord link temporarily removed
+                <MuiLink
+                  href="https://discord.gg/nrQezVny"
                   target="_blank"
                   sx={{
                     display: 'flex',
                     alignItems: 'center',
-                    opacity: 0.6,
-                    transition: 'opacity 0.2s',
-                    '&:hover': {
-                      opacity: 1
-                    }
+                    height: 22
                   }}
                 >
-                  <Box 
-                    component="img" 
-                    src={xIcon} 
-                    sx={{ width: 24 }} 
-                    alt="X (Twitter)"
+                  <Box
+                    component="img"
+                    src={discordIcon}
+                    alt="Discord"
+                    sx={{
+                      width: 22,
+                      height: 22,
+                      opacity: 0.8,
+                      transition: 'all 0.2s',
+                      filter: 'invert(36%) sepia(71%) saturate(6010%) hue-rotate(308deg) brightness(97%) contrast(101%)',
+                      '&:hover': {
+                        opacity: 1,
+                        transform: 'scale(1.05)'
+                      }
+                    }}
                   />
                 </MuiLink>
-                <MuiLink 
-                  href="https://github.com/unifrens"
-                  target="_blank"
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    opacity: 0.6,
-                    transition: 'opacity 0.2s',
-                    '&:hover': {
-                      opacity: 1
-                    }
-                  }}
-                >
-                  <Box 
-                    component="img" 
-                    src={githubIcon} 
-                    sx={{ width: 24 }} 
-                    alt="GitHub"
-                  />
-                </MuiLink>
-                <MuiLink 
-                  href="https://unifrens.gitbook.io/unifrens-docs/"
-                  target="_blank"
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    opacity: 0.6,
-                    transition: 'opacity 0.2s',
-                    '&:hover': {
-                      opacity: 1
-                    }
-                  }}
-                >
-                  <Box 
-                    component="img" 
-                    src={gitbookIcon} 
-                    sx={{ width: 24 }} 
-                    alt="Documentation"
-                  />
-                </MuiLink>
+                */}
               </Box>
 
               {/* Powered by Unichain */}
@@ -785,92 +760,68 @@ const Navbar = () => {
               flexDirection: 'column',
               gap: 2
             }}>
-              {/* Social Links */}
-              <Box sx={{ 
-                display: 'flex',
-                justifyContent: 'center',
-                gap: 3
-              }}>
-                <MuiLink 
-                  href="https://discord.gg/nrQezVny" 
+              {/* Social Links - Mobile */}
+              <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+                {/* Discord link temporarily removed
+                <MuiLink
+                  href="https://discord.gg/nrQezVny"
                   target="_blank"
                   sx={{
                     display: 'flex',
                     alignItems: 'center',
-                    opacity: 0.6,
-                    transition: 'opacity 0.2s',
-                    '&:hover': {
-                      opacity: 1
-                    }
+                    height: 22
                   }}
                 >
-                  <Box 
-                    component="img" 
-                    src={discordIcon} 
-                    sx={{ width: 24 }} 
+                  <Box
+                    component="img"
+                    src={discordIcon}
                     alt="Discord"
+                    sx={{
+                      width: 22,
+                      height: 22,
+                      opacity: 0.8,
+                      transition: 'all 0.2s',
+                      filter: 'invert(36%) sepia(71%) saturate(6010%) hue-rotate(308deg) brightness(97%) contrast(101%)',
+                      '&:hover': {
+                        opacity: 1,
+                        transform: 'scale(1.05)'
+                      }
+                    }}
                   />
                 </MuiLink>
-                <MuiLink 
-                  href="https://x.com/unichainfrens" 
+                */}
+              </Box>
+
+              {/* Social Links - Desktop */}
+              <Box sx={{ display: { xs: 'none', md: 'flex' }, gap: 2, alignItems: 'center' }}>
+                {/* Discord link temporarily removed
+                <MuiLink
+                  href="https://discord.gg/nrQezVny"
                   target="_blank"
                   sx={{
                     display: 'flex',
                     alignItems: 'center',
-                    opacity: 0.6,
-                    transition: 'opacity 0.2s',
-                    '&:hover': {
-                      opacity: 1
-                    }
+                    height: 22
                   }}
                 >
-                  <Box 
-                    component="img" 
-                    src={xIcon} 
-                    sx={{ width: 24 }} 
-                    alt="X (Twitter)"
+                  <Box
+                    component="img"
+                    src={discordIcon}
+                    alt="Discord"
+                    sx={{
+                      width: 22,
+                      height: 22,
+                      opacity: 0.8,
+                      transition: 'all 0.2s',
+                      filter: 'invert(36%) sepia(71%) saturate(6010%) hue-rotate(308deg) brightness(97%) contrast(101%)',
+                      '&:hover': {
+                        opacity: 1,
+                        transform: 'scale(1.05)'
+                      }
+                    }}
                   />
                 </MuiLink>
-                <MuiLink 
-                  href="https://github.com/unifrens"
-                  target="_blank"
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    opacity: 0.6,
-                    transition: 'opacity 0.2s',
-                    '&:hover': {
-                      opacity: 1
-                    }
-                  }}
-                >
-                  <Box 
-                    component="img" 
-                    src={githubIcon} 
-                    sx={{ width: 24 }} 
-                    alt="GitHub"
-                  />
-                </MuiLink>
-                <MuiLink 
-                  href="https://unifrens.gitbook.io/unifrens-docs/"
-                  target="_blank"
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    opacity: 0.6,
-                    transition: 'opacity 0.2s',
-                    '&:hover': {
-                      opacity: 1
-                    }
-                  }}
-                >
-                  <Box 
-                    component="img" 
-                    src={gitbookIcon} 
-                    sx={{ width: 24 }} 
-                    alt="Documentation"
-                  />
-                </MuiLink>
+                */}
               </Box>
 
               {/* Powered by Unichain */}
