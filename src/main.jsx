@@ -6,6 +6,8 @@ import MintPage from './components/MintPage'
 import LogsPage from './components/LogsPage'
 import FrensPage from './components/FrensPage'
 import LeaderboardPage from './components/LeaderboardPage'
+import PlayPage from './components/PlayPage'
+import FaucetPage from './components/FaucetPage'
 import './styles.css'
 import './wallet'
 import { initAnalytics } from './firebase'
@@ -15,7 +17,9 @@ const router = createBrowserRouter([
   { path: '/mint', element: <MintPage /> },
   { path: '/logs', element: <LogsPage /> },
   { path: '/frens', element: <FrensPage /> },
-  { path: '/leaderboard', element: <LeaderboardPage /> }
+  { path: '/leaderboard', element: <LeaderboardPage /> },
+  { path: '/play', element: <PlayPage /> },
+  { path: '/faucet', element: <FaucetPage /> }
 ])
 
 // Error handling for production

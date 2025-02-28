@@ -9,6 +9,9 @@ import LeaderboardIcon from '@mui/icons-material/Leaderboard';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import LogoutIcon from '@mui/icons-material/Logout';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
+import CasinoIcon from '@mui/icons-material/Casino';
+import LocalAtmIcon from '@mui/icons-material/LocalAtm';
+import WaterDropIcon from '@mui/icons-material/WaterDrop';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { createPublicClient, http, formatEther } from 'viem';
@@ -19,6 +22,7 @@ import xIcon from '../assets/11053970_x_logo_twitter_new_brand_icon.svg';
 import githubIcon from '../assets/github-142-svgrepo-com.svg';
 import gitbookIcon from '../assets/gitbook-svgrepo-com.svg';
 import { BackgroundPattern } from '../App';
+import { buttonStyles } from '../styles/theme';
 
 const publicClient = createPublicClient({
   chain: unichainSepolia,
@@ -198,14 +202,29 @@ const Navbar = () => {
     <>
       <AppBar 
         position="fixed"
+        elevation={0}
         sx={{ 
           backgroundColor: '#F50DB4',
-          overflow: 'hidden'
+          overflow: 'hidden',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
         }}
       >
         <BackgroundPattern opacity={0.15} />
-        <Container maxWidth="lg">
-          <Toolbar sx={{ px: { xs: 2, sm: 3 } }}>
+        <Container 
+          maxWidth="lg" 
+          disableGutters 
+          sx={{
+            px: { xs: 2, sm: 3 }
+          }}
+        >
+          <Toolbar 
+            disableGutters
+            sx={{ 
+              minHeight: { xs: 64, sm: 72 },
+              display: 'flex',
+              alignItems: 'center'
+            }}
+          >
             <Box 
               component={Link}
               to="/"
@@ -214,34 +233,51 @@ const Navbar = () => {
                 alignItems: 'center',
                 textDecoration: 'none',
                 position: 'relative',
-                zIndex: 1
+                zIndex: 1,
+                height: { xs: 40, sm: 40 }  // Fixed height container for better alignment
               }}
             >
               <Box 
                 component="img"
                 src={logo}
                 alt="Unichain Frens"
-                sx={{ height: 40 }}
+                sx={{ 
+                  height: { xs: 26, sm: 30 },
+                  width: 'auto',
+                  mt: '2px'
+                }}
               />
             </Box>
             <Box sx={{ flexGrow: 1 }} />
             
-            <IconButton
-              color="inherit"
-              aria-label="menu"
-              onClick={toggleDrawer(true)}
-              sx={{
-                width: 40,
-                height: 40,
-                position: 'relative',
-                zIndex: 1,
-                '&:hover': {
-                  backgroundColor: 'rgba(255, 255, 255, 0.1)'
-                }
-              }}
-            >
-              <MenuIcon />
-            </IconButton>
+            <Box sx={{ 
+              display: 'flex',
+              alignItems: 'center',
+              height: { xs: 40, sm: 40 }  // Match height with logo container
+            }}>
+              <IconButton
+                color="inherit"
+                aria-label="menu"
+                onClick={toggleDrawer(true)}
+                sx={{
+                  width: 40,
+                  height: 40,
+                  position: 'relative',
+                  zIndex: 1,
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '12px',
+                  '&:hover': {
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)'
+                  }
+                }}
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M4 7h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  <path d="M4 12h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  <path d="M4 17h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+              </IconButton>
+            </Box>
           </Toolbar>
         </Container>
       </AppBar>
@@ -252,11 +288,10 @@ const Navbar = () => {
         onClose={toggleDrawer(false)}
         PaperProps={{
           sx: {
-            width: { xs: '100%', sm: 320 },
-            background: 'linear-gradient(180deg, rgba(245, 13, 180, 0.02) 0%, rgba(245, 13, 180, 0.001) 100%)',
-            backgroundColor: '#FFF',
+            width: { xs: '100%', sm: 400 },
+            backgroundColor: '#FAFAFA',
             borderLeft: '1px solid rgba(245, 13, 180, 0.1)',
-            boxShadow: '-4px 0 24px rgba(245, 13, 180, 0.12)',
+            boxShadow: 'none'
           }
         }}
       >
@@ -410,6 +445,68 @@ const Navbar = () => {
                   fontSize: '0.95rem',
                   fontWeight: 600,
                   color: location.pathname === '/leaderboard' ? '#F50DB4' : '#111'
+                }
+              }}
+            />
+          </ListItem>
+
+          <ListItem 
+            component={Link} 
+            to="/play"
+            onClick={toggleDrawer(false)}
+            sx={{
+              borderRadius: '12px',
+              mb: 1,
+              backgroundColor: location.pathname === '/play' ? 'rgba(245, 13, 180, 0.04)' : 'transparent',
+              '&:hover': {
+                backgroundColor: 'rgba(245, 13, 180, 0.08)',
+              }
+            }}
+          >
+            <ListItemIcon sx={{ 
+              minWidth: 40,
+              color: location.pathname === '/play' ? '#F50DB4' : '#666'
+            }}>
+              <CasinoIcon />
+            </ListItemIcon>
+            <ListItemText 
+              primary="Play & Win" 
+              sx={{
+                '& .MuiListItemText-primary': {
+                  fontSize: '0.95rem',
+                  fontWeight: 600,
+                  color: location.pathname === '/play' ? '#F50DB4' : '#111'
+                }
+              }}
+            />
+          </ListItem>
+
+          <ListItem 
+            component={Link} 
+            to="/faucet"
+            onClick={toggleDrawer(false)}
+            sx={{
+              borderRadius: '12px',
+              mb: 1,
+              backgroundColor: location.pathname === '/faucet' ? 'rgba(245, 13, 180, 0.04)' : 'transparent',
+              '&:hover': {
+                backgroundColor: 'rgba(245, 13, 180, 0.08)',
+              }
+            }}
+          >
+            <ListItemIcon sx={{ 
+              minWidth: 40,
+              color: location.pathname === '/faucet' ? '#F50DB4' : '#666'
+            }}>
+              <WaterDropIcon />
+            </ListItemIcon>
+            <ListItemText 
+              primary="Faucet" 
+              sx={{
+                '& .MuiListItemText-primary': {
+                  fontSize: '0.95rem',
+                  fontWeight: 600,
+                  color: location.pathname === '/faucet' ? '#F50DB4' : '#111'
                 }
               }}
             />

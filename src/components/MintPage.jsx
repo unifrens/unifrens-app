@@ -286,15 +286,15 @@ const MintPage = () => {
             width: '100%',
             mx: 'auto',
           }}>
-            <Box sx={{ textAlign: 'center', mb: 3 }}>
+            <Box sx={{ textAlign: 'center', mb: { xs: 3, sm: 4 } }}>
               <Typography 
                 variant="h2" 
                 sx={{ 
-                  fontSize: { xs: '1.75rem', sm: '2.25rem' },
+                  fontSize: { xs: '1.5rem', sm: '2.25rem' },
                   color: '#111',
                   fontWeight: 900,
                   letterSpacing: '-0.02em',
-                  mb: 2,
+                  mb: { xs: 1, sm: 2 },
                   '& span': {
                     color: '#F50DB4'
                   }
@@ -303,7 +303,7 @@ const MintPage = () => {
                 Mint Your <span>Unifren</span>
               </Typography>
               <Typography sx={{
-                fontSize: '1rem',
+                fontSize: { xs: '0.875rem', sm: '1rem' },
                 color: '#666',
                 maxWidth: '400px',
                 mx: 'auto',
@@ -313,211 +313,224 @@ const MintPage = () => {
               </Typography>
             </Box>
 
+            {/* Weight Selection Card */}
             <Box sx={{ 
-              p: { xs: 2.5, sm: 3 },
+              p: { xs: 2, sm: 2.5 },
               borderRadius: 3,
               backgroundColor: 'white',
               border: '1px solid rgba(245, 13, 180, 0.1)',
               boxShadow: '0 4px 24px rgba(245, 13, 180, 0.08)',
+              mb: { xs: 2, sm: 2.5 }
             }}>
-              <Box sx={{ mb: 3 }}>
-                <Typography sx={{ 
-                  fontSize: '1.1rem',
-                  color: '#111',
-                  mb: 1,
-                  fontWeight: 700,
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'baseline'
-                }}>
-                  Choose Weight
-                  <Typography component="span" sx={{ 
-                    fontSize: '0.9rem',
-                    color: '#666',
-                    fontWeight: 500
-                  }}>
-                    Multiplier: {mintData.weight}x
-                  </Typography>
-                </Typography>
-                <Typography sx={{ 
-                  fontSize: '0.9rem',
-                  color: '#666',
-                  mb: 2,
-                  lineHeight: 1.4
-                }}>
-                  Higher weight = higher rewards multiplier but costs more to mint
-                </Typography>
-                <Slider
-                  value={mintData.weight}
-                  min={1}
-                  max={100}
-                  onChange={handleWeightChange}
-                  marks={[
-                    { value: 1, label: '1x' },
-                    { value: 50, label: '50x' },
-                    { value: 100, label: '100x' }
-                  ]}
-                  sx={{
-                    '& .MuiSlider-markLabel': {
-                      fontSize: '0.8rem',
-                      color: '#666',
-                      fontWeight: 600
-                    },
-                    '& .MuiSlider-track': {
-                      background: '#F50DB4',
-                      height: 4,
-                      border: 'none'
-                    },
-                    '& .MuiSlider-thumb': {
-                      background: '#F50DB4',
-                      width: 20,
-                      height: 20,
-                      '&:hover, &.Mui-focusVisible': {
-                        boxShadow: '0 0 0 8px rgba(245, 13, 180, 0.15)'
-                      },
-                      '&:before': {
-                        boxShadow: '0 0 0 8px rgba(245, 13, 180, 0.08)'
-                      }
-                    },
-                    '& .MuiSlider-rail': {
-                      height: 4,
-                      backgroundColor: 'rgba(245, 13, 180, 0.1)'
-                    },
-                    '& .MuiSlider-mark': {
-                      backgroundColor: 'rgba(245, 13, 180, 0.2)',
-                      height: 4
-                    },
-                    '& .MuiSlider-markActive': {
-                      backgroundColor: '#F50DB4'
-                    }
-                  }}
-                />
-                <Box sx={{ 
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  mt: 1
-                }}>
-                  <Typography sx={{ 
-                    fontSize: '0.8rem',
-                    color: '#666'
-                  }}>
-                    Lower cost
-                  </Typography>
-                  <Typography sx={{ 
-                    fontSize: '0.8rem',
-                    color: '#666'
-                  }}>
-                    Higher rewards
-                  </Typography>
-                </Box>
-              </Box>
-
-              <Box sx={{ mb: 3 }}>
-                <Typography sx={{ 
-                  fontSize: '1.1rem',
-                  color: '#111',
-                  mb: 1,
-                  fontWeight: 700
-                }}>
-                  Name Your Fren
-                </Typography>
-                <Typography sx={{ 
-                  fontSize: '0.9rem', 
-                  color: '#666', 
-                  mb: 2,
-                  lineHeight: 1.4
-                }}>
-                  Names are permanent and must be unique. Use 1-16 characters, letters and numbers only.
-                </Typography>
-                <TextField
-                  fullWidth
-                  variant="standard"
-                  placeholder="Enter name (e.g. Satoshi123)"
-                  value={mintData.name}
-                  onChange={handleNameChange}
-                  error={!!nameError}
-                  helperText={nameError}
-                  inputProps={{
-                    style: { 
-                      fontSize: '1.2rem',
-                      fontWeight: 600,
-                      fontFamily: 'Space Grotesk'
-                    },
-                    maxLength: 16
-                  }}
-                  sx={{
-                    '& .MuiInput-root': {
-                      '&:before': {
-                        borderColor: 'rgba(245, 13, 180, 0.2)'
-                      },
-                      '&:hover:not(.Mui-disabled, .Mui-error):before': {
-                        borderColor: 'rgba(245, 13, 180, 0.4)'
-                      },
-                      '&.Mui-focused:after': {
-                        borderColor: '#F50DB4'
-                      }
-                    },
-                    '& .MuiFormHelperText-root': {
-                      marginLeft: 0,
-                      marginTop: 1,
-                      fontSize: '0.85rem'
-                    }
-                  }}
-                />
-              </Box>
-
-              <Box sx={{ 
-                display: 'flex', 
-                justifyContent: 'space-between', 
-                alignItems: 'center',
-                mt: 2,
-                pt: 2,
-                borderTop: '1px solid rgba(245, 13, 180, 0.1)'
+              <Typography sx={{ 
+                fontSize: { xs: '0.9rem', sm: '1.1rem' },
+                color: '#111',
+                mb: 0.5,
+                fontWeight: 700,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'baseline'
               }}>
-                <Box>
-                  <Typography sx={{ 
+                Choose Weight
+                <Typography component="span" sx={{ 
+                  fontSize: { xs: '0.8rem', sm: '0.9rem' },
+                  color: '#666',
+                  fontWeight: 500
+                }}>
+                  {mintData.weight}x
+                </Typography>
+              </Typography>
+              <Typography sx={{ 
+                fontSize: { xs: '0.8rem', sm: '0.9rem' },
+                color: '#666',
+                mb: { xs: 1.5, sm: 2 },
+                lineHeight: 1.4
+              }}>
+                Higher weight = higher rewards multiplier but costs more to mint
+              </Typography>
+              <Slider
+                value={mintData.weight}
+                min={1}
+                max={100}
+                onChange={handleWeightChange}
+                marks={[
+                  { value: 1, label: '1x' },
+                  { value: 50, label: '50x' },
+                  { value: 100, label: '100x' }
+                ]}
+                sx={{
+                  '& .MuiSlider-markLabel': {
+                    fontSize: '0.75rem',
                     color: '#666',
-                    fontSize: '0.9rem',
-                    mb: 0.5
-                  }}>
-                    Mint Price
-                  </Typography>
-                  <Typography sx={{ 
-                    color: '#F50DB4',
-                    fontWeight: 700,
-                    fontSize: '1.2rem',
-                    fontFamily: 'Space Grotesk'
-                  }}>
-                    {mintPrice} ETH
-                  </Typography>
-                </Box>
-                <Button
-                  variant="contained"
-                  onClick={handleMint}
-                  disabled={!mintData.name || !!nameError || !mintData.isValidNetwork || isMinting}
-                  sx={{ 
-                    py: 1.5,
-                    px: 4,
-                    fontSize: '1rem',
+                    fontWeight: 600
+                  },
+                  '& .MuiSlider-track': {
                     background: '#F50DB4',
-                    borderRadius: '12px',
-                    textTransform: 'none',
-                    fontWeight: 600,
-                    boxShadow: 'none',
-                    '&:hover': {
-                      background: '#F50DB4',
-                      opacity: 0.9,
-                      boxShadow: '0 4px 16px rgba(245, 13, 180, 0.2)'
+                    height: 3,
+                    border: 'none'
+                  },
+                  '& .MuiSlider-thumb': {
+                    background: '#F50DB4',
+                    width: { xs: 16, sm: 20 },
+                    height: { xs: 16, sm: 20 },
+                    '&:hover, &.Mui-focusVisible': {
+                      boxShadow: '0 0 0 6px rgba(245, 13, 180, 0.15)'
                     },
-                    '&.Mui-disabled': {
-                      background: '#E0E0E0',
-                      color: '#999'
+                    '&:before': {
+                      boxShadow: '0 0 0 6px rgba(245, 13, 180, 0.08)'
                     }
-                  }}
-                >
-                  {isMinting ? 'Minting...' : 'Mint Now'}
-                </Button>
+                  },
+                  '& .MuiSlider-rail': {
+                    height: 3,
+                    backgroundColor: 'rgba(245, 13, 180, 0.1)'
+                  },
+                  '& .MuiSlider-mark': {
+                    backgroundColor: 'rgba(245, 13, 180, 0.2)',
+                    height: 3
+                  },
+                  '& .MuiSlider-markActive': {
+                    backgroundColor: '#F50DB4'
+                  }
+                }}
+              />
+              <Box sx={{ 
+                display: 'flex',
+                justifyContent: 'space-between',
+                mt: 0.5
+              }}>
+                <Typography sx={{ 
+                  fontSize: { xs: '0.7rem', sm: '0.8rem' },
+                  color: '#666'
+                }}>
+                  Lower cost
+                </Typography>
+                <Typography sx={{ 
+                  fontSize: { xs: '0.7rem', sm: '0.8rem' },
+                  color: '#666'
+                }}>
+                  Higher rewards
+                </Typography>
               </Box>
+            </Box>
+
+            {/* Name Selection Card */}
+            <Box sx={{ 
+              p: { xs: 2, sm: 2.5 },
+              borderRadius: 3,
+              backgroundColor: 'white',
+              border: '1px solid rgba(245, 13, 180, 0.1)',
+              boxShadow: '0 4px 24px rgba(245, 13, 180, 0.08)',
+              mb: { xs: 2, sm: 2.5 }
+            }}>
+              <Typography sx={{ 
+                fontSize: { xs: '0.9rem', sm: '1.1rem' },
+                color: '#111',
+                mb: 0.5,
+                fontWeight: 700
+              }}>
+                Name Your Fren
+              </Typography>
+              <Typography sx={{ 
+                fontSize: { xs: '0.8rem', sm: '0.9rem' }, 
+                color: '#666', 
+                mb: { xs: 1.5, sm: 2 },
+                lineHeight: 1.4
+              }}>
+                Names are permanent and must be unique. Use 1-16 characters, letters and numbers only.
+              </Typography>
+              <TextField
+                fullWidth
+                variant="standard"
+                placeholder="Enter name (e.g. Satoshi123)"
+                value={mintData.name}
+                onChange={handleNameChange}
+                error={!!nameError}
+                helperText={nameError}
+                inputProps={{
+                  style: { 
+                    fontSize: '1rem',
+                    fontWeight: 600,
+                    fontFamily: 'Space Grotesk',
+                    paddingBottom: '4px'
+                  },
+                  maxLength: 16
+                }}
+                sx={{
+                  '& .MuiInput-root': {
+                    '&:before': {
+                      borderColor: 'rgba(245, 13, 180, 0.2)'
+                    },
+                    '&:hover:not(.Mui-disabled, .Mui-error):before': {
+                      borderColor: 'rgba(245, 13, 180, 0.4)'
+                    },
+                    '&.Mui-focused:after': {
+                      borderColor: '#F50DB4'
+                    }
+                  },
+                  '& .MuiFormHelperText-root': {
+                    marginLeft: 0,
+                    marginTop: 0.5,
+                    fontSize: '0.75rem'
+                  }
+                }}
+              />
+            </Box>
+
+            {/* Mint Button Card */}
+            <Box sx={{ 
+              p: { xs: 2, sm: 2.5 },
+              borderRadius: 3,
+              backgroundColor: 'white',
+              border: '1px solid rgba(245, 13, 180, 0.1)',
+              boxShadow: '0 4px 24px rgba(245, 13, 180, 0.08)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <Box>
+                <Typography sx={{ 
+                  color: '#666',
+                  fontSize: { xs: '0.8rem', sm: '0.9rem' },
+                  mb: 0.25
+                }}>
+                  Mint Price
+                </Typography>
+                <Typography sx={{ 
+                  color: '#F50DB4',
+                  fontWeight: 700,
+                  fontSize: { xs: '1rem', sm: '1.2rem' },
+                  fontFamily: 'Space Grotesk'
+                }}>
+                  {mintPrice} ETH
+                </Typography>
+              </Box>
+              <Button
+                variant="contained"
+                onClick={handleMint}
+                disabled={!mintData.name || !!nameError || !mintData.isValidNetwork || isMinting}
+                sx={{ 
+                  py: { xs: 1.25, sm: 1.5 },
+                  px: { xs: 3, sm: 4 },
+                  fontSize: { xs: '0.9rem', sm: '1rem' },
+                  background: '#F50DB4',
+                  borderRadius: '12px',
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  boxShadow: 'none',
+                  minHeight: { xs: '40px', sm: '48px' },
+                  '&:hover': {
+                    background: '#F50DB4',
+                    opacity: 0.9,
+                    boxShadow: '0 4px 16px rgba(245, 13, 180, 0.2)'
+                  },
+                  '&.Mui-disabled': {
+                    background: '#E0E0E0',
+                    color: '#999'
+                  }
+                }}
+              >
+                {isMinting ? 'Minting...' : 'Mint Now'}
+              </Button>
             </Box>
           </Box>
         )}

@@ -23,6 +23,7 @@
     "boring-avatars": "^1.11.2",
     "canvas-confetti": "^1.9.3",
     "firebase": "^11.3.1",
+    "lucide-react": "^0.476.0",
     "react": "^19.0.0",
     "react-colorful": "^5.6.1",
     "react-dom": "^19.0.0",

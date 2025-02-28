@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Box, Container, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, CircularProgress, Chip } from '@mui/material';
+import { Box, Container, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, CircularProgress, Chip, Card } from '@mui/material';
 import { formatEther } from 'viem';
 import UpdateIcon from '@mui/icons-material/Update';
 import Navbar from './Navbar';
@@ -64,6 +64,7 @@ const LeaderboardPage = () => {
   const [error, setError] = useState(null);
   const [lastUpdate, setLastUpdate] = useState(null);
   const [displayTime, setDisplayTime] = useState('');
+  const [animatedBalances, setAnimatedBalances] = useState({});
   const [walletData, setWalletData] = useState({
     address: '',
     isConnected: false,
@@ -151,6 +152,66 @@ const LeaderboardPage = () => {
     return () => clearInterval(interval);
   }, [lastUpdate]);
 
+  // Initialize animated balances when NFTs load
+  useEffect(() => {
+    if (!nfts.length) return;
+    
+    const initialBalances = {};
+    nfts.forEach(nft => {
+      const actualBalance = parseFloat(nft.pendingRewards || '0');
+      // Random starting point slightly below actual
+      initialBalances[nft.tokenId] = Math.max(0, actualBalance - 0.000000000000001000);
+    });
+    setAnimatedBalances(initialBalances);
+  }, [nfts]);
+
+  // Animate balances with tiny continuous drips
+  useEffect(() => {
+    if (!nfts.length) return;
+
+    const intervals = {};
+    const dripRates = {};
+
+    nfts.forEach(nft => {
+      // Generate a random drip rate between 1-50 for each NFT (multiplied by 0.000000000000000001)
+      dripRates[nft.tokenId] = (Math.floor(Math.random() * 50) + 1) * 0.000000000000000001;
+      
+      const actualBalance = parseFloat(nft.pendingRewards || '0');
+      const baseInterval = 5000;
+      const weight = nft.weight || 0;
+      const scaledInterval = weight >= 100 ? baseInterval * 0.8 : baseInterval;
+      
+      intervals[nft.tokenId] = setInterval(() => {
+        setAnimatedBalances(prev => {
+          const current = prev[nft.tokenId] || 0;
+          
+          if (current >= actualBalance) return prev;
+
+          // Use NFT's unique drip rate
+          const increment = dripRates[nft.tokenId];
+          const newBalance = Math.min(current + increment, actualBalance);
+          
+          return {
+            ...prev,
+            [nft.tokenId]: newBalance
+          };
+        });
+      }, scaledInterval);
+    });
+
+    return () => {
+      Object.values(intervals).forEach(interval => clearInterval(interval));
+    };
+  }, [nfts]);
+
+  // Add a helper function to format ETH values with fixed width
+  const formatETHValue = (value) => {
+    if (!value && value !== 0) return '0.000000000000000000';
+    const fixed = value.toFixed(18);
+    const [whole, decimal] = fixed.split('.');
+    return `${whole}.${decimal.padEnd(18, '0')}`;
+  };
+
   return (
     <Box sx={{ 
       minHeight: '100vh',
@@ -196,22 +257,110 @@ const LeaderboardPage = () => {
           }}>
             Track the top performing Frens and their earnings.
           </Typography>
+
+          {/* Stats Section */}
+          {!error && (
+            <Box sx={{ 
+              display: 'grid',
+              gridTemplateColumns: { 
+                xs: 'repeat(2, 1fr)',
+                sm: 'repeat(2, 180px)'
+              },
+              gap: { xs: 1, sm: 3 },
+              mt: { xs: 3, sm: 4 },
+              mb: { xs: 3, sm: 4 },
+              justifyContent: 'center'
+            }}>
+              <Box sx={{ 
+                p: { xs: 1.5, sm: 2.5 },
+                textAlign: 'center',
+                position: 'relative',
+                borderRadius: 2,
+                backgroundColor: 'white',
+                border: '1px solid rgba(245, 13, 180, 0.1)',
+                boxShadow: '0 4px 24px rgba(245, 13, 180, 0.08)'
+              }}>
+                <Typography sx={{ 
+                  color: '#666', 
+                  mb: { xs: 0.5, sm: 1 },
+                  fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                }}>
+                  Total Players
+                </Typography>
+                <Typography sx={{ 
+                  fontSize: { xs: '1.125rem', sm: '2rem' },
+                  color: '#F50DB4',
+                  fontWeight: 700,
+                  lineHeight: 1,
+                  mb: { xs: 0.5, sm: 1 }
+                }}>
+                  {new Set(nfts.map(nft => nft.owner.toLowerCase())).size}
+                </Typography>
+                <Typography sx={{ 
+                  color: '#666',
+                  fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                }}>
+                  Unique Addresses
+                </Typography>
+              </Box>
+
+              <Box sx={{ 
+                p: { xs: 1.5, sm: 2.5 },
+                textAlign: 'center',
+                position: 'relative',
+                borderRadius: 2,
+                backgroundColor: 'white',
+                border: '1px solid rgba(245, 13, 180, 0.1)',
+                boxShadow: '0 4px 24px rgba(245, 13, 180, 0.08)'
+              }}>
+                <Typography sx={{ 
+                  color: '#666', 
+                  mb: { xs: 0.5, sm: 1 },
+                  fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                }}>
+                  Total NFTs
+                </Typography>
+                <Typography sx={{ 
+                  fontSize: { xs: '1.125rem', sm: '2rem' },
+                  color: '#111',
+                  fontWeight: 700,
+                  lineHeight: 1,
+                  mb: { xs: 0.5, sm: 1 }
+                }}>
+                  {nfts.length}
+                </Typography>
+                <Typography sx={{ 
+                  color: '#666',
+                  fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                }}>
+                  Frens Minted
+                </Typography>
+              </Box>
+            </Box>
+          )}
+
           {!loading && !error && lastUpdate && (
             <Chip
-              icon={<UpdateIcon sx={{ fontSize: '0.9rem' }} />}
+              icon={<UpdateIcon sx={{ fontSize: '0.75rem' }} />}
               label={displayTime}
               size="small"
               sx={{
-                position: { xs: 'relative', sm: 'absolute' },
-                top: { sm: 0 },
-                right: { sm: 0 },
-                mt: { xs: 2, sm: 0 },
-                backgroundColor: 'white',
-                border: '1px solid rgba(245, 13, 180, 0.1)',
+                display: { xs: 'none', sm: 'flex' },
+                position: 'absolute',
+                top: 0,
+                right: 0,
+                height: '24px',
+                backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                border: '1px solid rgba(245, 13, 180, 0.05)',
                 color: '#666',
-                fontSize: '0.75rem',
+                fontSize: '0.7rem',
+                opacity: 0.8,
                 '& .MuiChip-icon': {
-                  color: '#F50DB4'
+                  color: '#F50DB4',
+                  opacity: 0.7
+                },
+                '& .MuiChip-label': {
+                  px: 1
                 }
               }}
             />
@@ -547,34 +696,38 @@ const LeaderboardPage = () => {
                         )}
                       </TableCell>
                       <TableCell sx={{ 
-                        display: { xs: 'none', sm: 'table-cell' }
+                        display: { xs: 'none', sm: 'table-cell' },
+                        width: '200px', // Fixed width for the cell
+                        minWidth: '200px'
                       }}>
                         <Typography sx={{ 
                           color: '#4CAF50',
                           fontWeight: 600,
                           fontSize: '0.85rem',
-                          fontFamily: 'Space Grotesk',
-                          whiteSpace: 'nowrap',
+                          fontFamily: 'monospace', // Use monospace for fixed-width characters
+                          whiteSpace: 'pre', // Preserve whitespace
                           textAlign: 'right',
                           pr: 3
                         }}>
-                          {nft.pendingRewards}&nbsp;ETH
+                          {formatETHValue(animatedBalances[nft.tokenId] || parseFloat(nft.pendingRewards || '0'))}&nbsp;ETH
                         </Typography>
                       </TableCell>
                       <TableCell sx={{ 
-                        display: { xs: 'none', sm: 'table-cell' }
+                        display: { xs: 'none', sm: 'table-cell' },
+                        width: '200px', // Fixed width for the cell
+                        minWidth: '200px'
                       }}>
                         <Typography sx={{ 
                           color: '#F50DB4',
                           fontWeight: 600,
                           fontSize: '0.85rem',
-                          fontFamily: 'Space Grotesk',
+                          fontFamily: 'monospace', // Use monospace for fixed-width characters
+                          whiteSpace: 'pre', // Preserve whitespace
                           opacity: 0.9,
-                          whiteSpace: 'nowrap',
                           textAlign: 'right',
                           pr: 3
                         }}>
-                          {nft.totalClaimed}&nbsp;ETH
+                          {formatETHValue(parseFloat(nft.totalClaimed || '0'))}&nbsp;ETH
                         </Typography>
                       </TableCell>
                     </TableRow>

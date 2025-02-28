@@ -442,6 +442,9 @@ const ClaimModal = ({ open, onClose, token, onSuccess, contractBalance }) => {
       // Refresh token data after successful claim
       await onSuccess(token.id);
 
+      // Close modal after successful claim
+      onClose();
+
     } catch (error) {
       // Enhanced error logging
       console.error('Claim error full details:', {

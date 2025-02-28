@@ -1,4 +1,4 @@
-import { Box, Typography, Card, CardContent, Stack, Chip, CircularProgress, Button, Container, IconButton, Tooltip, Alert } from '@mui/material';
+import { Box, Typography, Card, CardContent, Stack, Chip, CircularProgress, Button, Container, IconButton, Tooltip, Alert, Dialog, DialogContent } from '@mui/material';
 import { useState, useEffect, useCallback } from 'react';
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from '../contract';
 import { createPublicClient, http, createWalletClient, custom, formatEther, encodeFunctionData } from 'viem';
@@ -13,6 +13,11 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import frenTokenImage from '../assets/fren-token.png';
 import { APP_CONFIG } from '../config';
 import MaintenanceMode from './MaintenanceMode';
+import { buttonStyles, cardStyles, containerStyles } from '../styles/theme';
+import LeaderboardAnnouncement from './common/announcements/LeaderboardAnnouncement';
+import AirdropAnnouncement from './common/announcements/AirdropAnnouncement';
+import FrenViewModal from './FrenViewModal';
+import { preloadNFTImage, getCachedNFTImage } from '../utils/imageCache';
 
 const publicClient = createPublicClient({
   chain: unichainSepolia,
@@ -101,25 +106,17 @@ const fetchWithRetry = async (fn, retries = 2) => {
   throw lastError;
 };
 
-const RefreshButton = ({ onClick, disabled, isRefreshing, cooldown }) => (
+const RefreshButton = ({ onClick, disabled, isRefreshing, cooldown, sx = {} }) => (
   <Tooltip title={cooldown ? "Please wait before refreshing again" : "Refresh data"}>
     <span>
       <IconButton
         onClick={onClick}
         disabled={disabled || cooldown}
         sx={{ 
-          color: '#F50DB4',
-          backgroundColor: 'white',
-          border: '1px solid rgba(245, 13, 180, 0.1)',
-          width: { xs: 48, sm: 40 },
-          height: { xs: 48, sm: 40 },
-          borderRadius: '12px',
-          '&:hover': {
-            backgroundColor: 'rgba(245, 13, 180, 0.04)'
-          },
-          '&.Mui-disabled': {
-            opacity: 0.5
-          }
+          ...buttonStyles,
+          width: { xs: 48, sm: 48 },
+          height: { xs: 48, sm: 48 },
+          ...sx
         }}
       >
         <RefreshIcon sx={{ 
@@ -182,6 +179,7 @@ const FrensPage = () => {
     loading: true
   });
   const [refreshCooldown, setRefreshCooldown] = useState(false);
+  const [viewToken, setViewToken] = useState(null);
 
   const formatAddress = (address) => {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -226,6 +224,15 @@ const FrensPage = () => {
         claimed: token.claimed.toString()
       }));
 
+      // Sort NFTs - active first, then retired
+      serializedData.sort((a, b) => {
+        // If one is active and other is retired, active comes first
+        if (a.weight !== '0' && b.weight === '0') return -1;
+        if (a.weight === '0' && b.weight !== '0') return 1;
+        // If both are active or both are retired, sort by ID
+        return Number(BigInt(a.id) - BigInt(b.id));
+      });
+
       const cache = {
         data: serializedData,
         timestamp: Date.now(),
@@ -246,18 +253,27 @@ const FrensPage = () => {
     }
 
     try {
-      // Check cache first
+      // Always check and show cached data first
       const cachedData = getCachedData();
-      if (cachedData && !skipCache) {
+      if (cachedData) {
         console.log('Using cached data');
-        setNfts(cachedData);
+        const sortedNfts = [...cachedData].sort((a, b) => {
+          if (a.weight !== 0n && b.weight === 0n) return -1;
+          if (a.weight === 0n && b.weight !== 0n) return 1;
+          return Number(a.id - b.id);
+        });
+        setNfts(sortedNfts);
         setLoading(false);
         setInitialLoad(false);
+      }
+
+      // If we're not skipping cache and we have cached data, we can return early
+      if (!skipCache && cachedData) {
         return;
       }
 
-      // Only show loading if it's not a background refresh
-      if (!isBackgroundRefresh) {
+      // Only show loading if it's not a background refresh AND we don't have cached data
+      if (!isBackgroundRefresh && !cachedData) {
         setLoading(true);
       }
       setError('');
@@ -287,6 +303,13 @@ const FrensPage = () => {
           args: [walletData.address, BigInt(i)]
         });
 
+        // Check if we have cached data for retired NFTs
+        const cachedToken = cachedData?.find(t => t.id === tokenId && t.weight === 0n);
+        if (cachedToken) {
+          tokens.push(cachedToken);
+          continue;
+        }
+
         // Get token info
         const tokenInfo = await publicClient.readContract({
           address: CONTRACT_ADDRESS,
@@ -313,21 +336,23 @@ const FrensPage = () => {
         });
       }
 
-      setNfts(tokens);
-      if (tokens.length > 0) {
-        setCachedData(tokens);
+      // Sort tokens - active first, then retired
+      const sortedTokens = tokens.sort((a, b) => {
+        if (a.weight !== 0n && b.weight === 0n) return -1;
+        if (a.weight === 0n && b.weight !== 0n) return 1;
+        return Number(a.id - b.id);
+      });
+
+      setNfts(sortedTokens);
+      if (sortedTokens.length > 0) {
+        setCachedData(sortedTokens);
       }
 
     } catch (error) {
       console.error('Error fetching NFTs:', error);
       setError(error.message);
       
-      // Fall back to cached data on error
-      const cachedData = getCachedData();
-      if (cachedData) {
-        console.log('Using cached data as fallback after error');
-        setNfts(cachedData);
-      }
+      // We don't need to fall back to cached data here anymore since we already show it first
     } finally {
       setLoading(false);
       setInitialLoad(false);
@@ -385,6 +410,19 @@ const FrensPage = () => {
     
     return () => clearInterval(interval);
   }, [walletData.address, walletData.isConnected, fetchUserNFTs]);
+
+  // Add new effect for preloading images
+  useEffect(() => {
+    if (!nfts || nfts.length === 0) return;
+
+    // Preload images for all NFTs
+    const preloadImages = async () => {
+      const promises = nfts.map(token => preloadNFTImage(token.name));
+      await Promise.allSettled(promises);
+    };
+
+    preloadImages();
+  }, [nfts]);
 
   const getTotalPendingRewards = () => {
     return nfts.reduce((sum, token) => sum + token.rewards, BigInt(0));
@@ -477,9 +515,9 @@ const FrensPage = () => {
         args: [tokenId]
       });
 
-      // Update just this NFT in the state
-      setNfts(currentNfts => 
-        currentNfts.map(nft => 
+      // Update just this NFT in the state and maintain sorting
+      setNfts(currentNfts => {
+        const updatedNfts = currentNfts.map(nft => 
           nft.id === tokenId
             ? {
                 ...nft,
@@ -490,8 +528,24 @@ const FrensPage = () => {
                 isActive: tokenInfo[4]
               }
             : nft
-        )
-      );
+        );
+        
+        // Re-sort the NFTs
+        const sortedNfts = updatedNfts.sort((a, b) => {
+          if (a.weight !== 0n && b.weight === 0n) return -1;
+          if (a.weight === 0n && b.weight !== 0n) return 1;
+          return Number(a.id - b.id);
+        });
+
+        // Update cache with new data
+        const currentCache = getCachedData();
+        if (currentCache) {
+          setCachedData(sortedNfts);
+        }
+
+        return sortedNfts;
+      });
+
     } catch (error) {
       console.error('Error refreshing NFT:', error);
       // If we can't refresh single NFT, fall back to full refresh
@@ -570,58 +624,18 @@ const FrensPage = () => {
           px: { xs: 2, sm: 3 }
         }}
       >
-        {/* Announcement Alert - Always show this */}
-        {SHOW_LEADERBOARD_ANNOUNCEMENT && (
-          <Alert 
-            severity="info"
-            sx={{
-              mb: { xs: 3, sm: 4 },
-              borderRadius: '12px',
-              backgroundColor: 'rgba(245, 13, 180, 0.04)',
-              border: '1px solid rgba(245, 13, 180, 0.1)',
-              '& .MuiAlert-icon': {
-                color: '#F50DB4',
-                marginTop: '2px'
-              },
-              '& .MuiAlert-message': {
-                width: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: 2,
-                padding: '1px 0'
-              }
-            }}
-          >
-            <Typography sx={{ 
-              fontSize: '0.95rem',
-              color: '#111',
-              lineHeight: 1.5
-            }}>
-              🏆 {' '}<strong>Leaderboards are now live!</strong> Check out where your Frens rank and compete for the top spots.
-            </Typography>
-            <Button
-              component={Link}
-              to="/leaderboard"
-              variant="contained"
-              size="small"
-              sx={{
-                backgroundColor: '#F50DB4',
-                color: 'white',
-                fontSize: '0.85rem',
-                py: 0.75,
-                px: 2,
-                borderRadius: '8px',
-                textTransform: 'none',
-                whiteSpace: 'nowrap',
-                '&:hover': {
-                  backgroundColor: '#d00a9b'
-                }
-              }}
-            >
-              View Leaderboard
-            </Button>
-          </Alert>
+        {/* Leaderboard Announcement */}
+        {SHOW_LEADERBOARD_ANNOUNCEMENT && <LeaderboardAnnouncement />}
+
+        {/* Airdrop Announcement */}
+        {!APP_CONFIG.MAINTENANCE_MODE && (
+          <AirdropAnnouncement
+            estimatedReward={formatNumber(
+              nfts.length * 1_000_000 +
+              Number(formatEther(getTotalPendingRewards())) * 2_000_000 +
+              Number(formatEther(getTotalClaimedRewards())) * 3_000_000
+            )}
+          />
         )}
 
         {/* Only show the rest of the content if not in maintenance mode */}
@@ -647,9 +661,8 @@ const FrensPage = () => {
                 }}>
                   {/* Your Collection */}
                   <Card sx={{ 
+                    ...cardStyles,
                     p: { xs: 1.5, sm: 2.5 },
-                    borderRadius: '12px',
-                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
                     textAlign: 'center',
                     position: 'relative'
                   }}>
@@ -694,9 +707,8 @@ const FrensPage = () => {
 
                   {/* Your Earned Rewards */}
                   <Card sx={{ 
+                    ...cardStyles,
                     p: { xs: 1.5, sm: 2.5 },
-                    borderRadius: '12px',
-                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
                     textAlign: 'center',
                     position: 'relative'
                   }}>
@@ -741,9 +753,8 @@ const FrensPage = () => {
 
                   {/* Your Volume */}
                   <Card sx={{ 
+                    ...cardStyles,
                     p: { xs: 1.5, sm: 2.5 },
-                    borderRadius: '12px',
-                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
                     textAlign: 'center',
                     position: 'relative'
                   }}>
@@ -788,12 +799,11 @@ const FrensPage = () => {
 
                   {/* Contract Balance */}
                   <Card sx={{ 
+                    ...cardStyles,
                     p: { xs: 1.5, sm: 2.5 },
-                    borderRadius: '12px',
-                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
                     textAlign: 'center',
                     position: 'relative',
-                    gridColumn: { xs: '2 / span 1', sm: 'auto' }
+                    gridColumn: { xs: '2 / span 1', sm: 'auto' },
                   }}>
                     {initialLoad && contractHealth.loading && (
                       <Box sx={{
@@ -860,247 +870,43 @@ const FrensPage = () => {
               </Box>
             )}
 
-            {/* Airdrop Panel */}
-            {!APP_CONFIG.MAINTENANCE_MODE && (
-              <Box sx={{
-                mb: { xs: 4, sm: 6 },
-                p: { xs: 2, sm: 3 },
-                backgroundColor: 'white',
-                borderRadius: '16px',
-                border: '1px solid rgba(245, 13, 180, 0.1)',
-                boxShadow: '0 4px 16px rgba(245, 13, 180, 0.08)'
-              }}>
-                <Box sx={{
-                  display: 'flex',
-                  flexDirection: { xs: 'column', sm: 'row' },
-                  alignItems: { xs: 'flex-start', sm: 'center' },
-                  justifyContent: 'space-between',
-                  gap: { xs: 2, sm: 3 }
-                }}>
-                  <Box sx={{ 
-                    display: 'flex',
-                    alignItems: { xs: 'flex-start', sm: 'center' },
-                    gap: { xs: 2, sm: 3 }
-                  }}>
-                    <Box sx={{
-                      width: { xs: 48, sm: 56 },
-                      height: { xs: 48, sm: 56 },
-                      borderRadius: '50%',
-                      overflow: 'hidden',
-                      backgroundColor: 'rgba(245, 13, 180, 0.04)',
-                      border: '1px solid rgba(245, 13, 180, 0.1)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0
-                    }}>
-                      <img 
-                        src={frenTokenImage} 
-                        alt="$FREN Token"
-                        style={{ 
-                          width: '100%',
-                          height: '100%',
-                          objectFit: 'cover'
-                        }} 
-                      />
-                    </Box>
-                    <Box>
-                      <Typography sx={{
-                        fontSize: { xs: '1rem', sm: '1.1rem' },
-                        fontWeight: 600,
-                        color: '#111',
-                        mb: 0.5,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 1
-                      }}>
-                        Estimated $FREN Airdrop
-                        <Tooltip
-                          arrow
-                          placement="top"
-                          title="Your estimated $FREN tokens based on your collection size, earned rewards, and total volume. These calculations are for illustrative purposes only and subject to change."
-                        >
-                          <InfoOutlinedIcon sx={{
-                            fontSize: '1rem',
-                            color: '#666',
-                            cursor: 'help',
-                            '&:hover': { color: '#F50DB4' }
-                          }} />
-                        </Tooltip>
-                      </Typography>
-                      <Typography sx={{
-                        fontSize: '0.9rem',
-                        color: '#666',
-                        maxWidth: '500px',
-                        lineHeight: 1.6
-                      }}>
-                        As an early tester, you're eligible for the upcoming $FREN token airdrop. Your reward is calculated based on your participation and activity.
-                      </Typography>
-                    </Box>
-                  </Box>
-                  <Button
-                    variant="contained"
-                    disabled
-                    sx={{
-                      backgroundColor: '#F50DB4',
-                      color: 'white',
-                      fontSize: { xs: '0.875rem', sm: '1rem' },
-                      py: { xs: 1.5, sm: 1 },
-                      px: { xs: 3, sm: 4 },
-                      borderRadius: '12px',
-                      textTransform: 'none',
-                      alignSelf: { xs: 'stretch', sm: 'auto' },
-                      minWidth: { sm: '160px' },
-                      whiteSpace: 'nowrap',
-                      '&.Mui-disabled': {
-                        backgroundColor: 'rgba(245, 13, 180, 0.12)',
-                        color: 'rgba(245, 13, 180, 0.5)'
-                      }
-                    }}
-                  >
-                    Claim Soon
-                  </Button>
-                </Box>
-
-                <Box sx={{
-                  display: 'grid',
-                  gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(4, 1fr)' },
-                  gap: 2,
-                  mt: 3,
-                  pt: 3,
-                  borderTop: '1px solid rgba(245, 13, 180, 0.05)'
-                }}>
-                  {[
-                    {
-                      label: 'Collection Bonus',
-                      value: formatNumber(nfts.length * 1_000_000),
-                      tooltip: 'Base reward for each Fren NFT you own. Final multiplier subject to change.'
-                    },
-                    {
-                      label: 'Rewards Bonus',
-                      value: formatNumber(Number(formatEther(getTotalPendingRewards())) * 2_000_000),
-                      tooltip: 'Additional tokens based on your earned ETH rewards. Final multiplier subject to change.'
-                    },
-                    {
-                      label: 'Volume Bonus',
-                      value: formatNumber(Number(formatEther(getTotalClaimedRewards())) * 3_000_000),
-                      tooltip: 'Bonus tokens based on your total ETH volume. Final multiplier subject to change.'
-                    },
-                    {
-                      label: 'Total $FREN',
-                      value: formatNumber(
-                        nfts.length * 1_000_000 +
-                        Number(formatEther(getTotalPendingRewards())) * 2_000_000 +
-                        Number(formatEther(getTotalClaimedRewards())) * 3_000_000
-                      ),
-                      tooltip: 'Your total estimated $FREN tokens. Final calculation method subject to change.',
-                      highlighted: true
-                    }
-                  ].map((item, index) => (
-                    <Box key={index} sx={{
-                      p: 2,
-                      backgroundColor: item.highlighted ? 'rgba(245, 13, 180, 0.04)' : 'transparent',
-                      borderRadius: '12px',
-                      border: '1px solid',
-                      borderColor: item.highlighted ? 'rgba(245, 13, 180, 0.1)' : 'transparent'
-                    }}>
-                      <Typography sx={{
-                        fontSize: '0.85rem',
-                        color: '#666',
-                        mb: 0.5,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 0.5
-                      }}>
-                        {item.label}
-                        <Tooltip
-                          arrow
-                          placement="top"
-                          title={item.tooltip}
-                        >
-                          <InfoOutlinedIcon sx={{
-                            fontSize: '0.9rem',
-                            color: '#666',
-                            cursor: 'help',
-                            '&:hover': { color: '#F50DB4' }
-                          }} />
-                        </Tooltip>
-                      </Typography>
-                      <Typography sx={{
-                        fontSize: item.highlighted ? { xs: '1.1rem', sm: '1.25rem' } : { xs: '1rem', sm: '1.1rem' },
-                        fontWeight: item.highlighted ? 600 : 500,
-                        color: item.highlighted ? '#F50DB4' : '#111',
-                        fontFamily: 'Space Grotesk'
-                      }}>
-                        {item.value}
-                      </Typography>
-                    </Box>
-                  ))}
-                </Box>
-                
-                <Typography sx={{
-                  fontSize: '0.75rem',
-                  color: '#666',
-                  fontStyle: 'italic',
-                  textAlign: 'center',
-                  mt: 2,
-                  pt: 2,
-                  borderTop: '1px solid rgba(245, 13, 180, 0.05)'
-                }}>
-                  * All calculations are for illustrative purposes only. Final distribution mechanics and token amounts may vary.
-                </Typography>
-              </Box>
-            )}
-
             {/* NFT Cards Header */}
             <Box sx={{ 
               display: 'flex', 
-              flexDirection: { xs: 'column', sm: 'row' },
-              justifyContent: 'space-between',
-              alignItems: { xs: 'stretch', sm: 'center' },
-              gap: { xs: 2, sm: 0 },
-              mb: 4 
+              gap: 2,
+              mb: 4,
+              mx: { xs: -2, sm: -3 },
+              px: { xs: 2, sm: 3 }
             }}>
-              <Typography variant="h2" sx={{ 
-                fontSize: { xs: '1.5rem', sm: '2rem' },
-                color: '#111',
-                fontWeight: 700
-              }}>
-                Frens
-              </Typography>
-              <Box sx={{ 
-                display: 'flex',
-                gap: 1,
-                alignItems: 'center'
-              }}>
-                <RefreshButton
-                  onClick={refreshData}
-                  disabled={loading || isRefreshing}
-                  isRefreshing={isRefreshing}
-                  cooldown={refreshCooldown}
-                />
-                <Button
-                  component={Link}
-                  to="/mint"
-                  variant="contained"
-                  fullWidth={false}
-                  sx={{ 
-                    backgroundColor: '#F50DB4',
-                    color: 'white',
-                    fontSize: { xs: '0.875rem', sm: '1rem' },
-                    py: { xs: 1.5, sm: 1 },
-                    px: { xs: 3, sm: 4 },
-                    borderRadius: '12px',
-                    textTransform: 'none',
-                    alignSelf: { xs: 'stretch', sm: 'auto' },
-                    '&:hover': {
-                      backgroundColor: '#d00a9b'
-                    }
-                  }}
-                >
-                  Mint New
-                </Button>
-              </Box>
+              <RefreshButton
+                onClick={refreshData}
+                disabled={loading || isRefreshing}
+                isRefreshing={isRefreshing}
+                cooldown={refreshCooldown}
+                sx={{
+                  flex: 1,
+                  height: '48px',
+                  borderRadius: '12px'
+                }}
+              />
+              <IconButton
+                component={Link}
+                to="/mint"
+                sx={{ 
+                  ...buttonStyles,
+                  flex: 1,
+                  height: '48px',
+                  borderRadius: '12px',
+                  '&:hover': {
+                    backgroundColor: '#d00a9b',
+                    boxShadow: '0 4px 16px rgba(245, 13, 180, 0.2)'
+                  }
+                }}
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 4V20M4 12H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+              </IconButton>
             </Box>
           </>
         )}
@@ -1129,227 +935,182 @@ const FrensPage = () => {
                   sm: 'repeat(3, 1fr)',
                   md: 'repeat(4, 1fr)'
                 },
-                gap: { xs: 2, sm: 3 }
+                gap: { xs: 1.5, sm: 2, md: 3 }
               }}>
-                {nfts.map((token, index) => (
-                  <Card 
-                    key={index}
-                    sx={{ 
-                      backgroundColor: 'white',
-                      borderRadius: '16px',
-                      boxShadow: '0 4px 16px rgba(245, 13, 180, 0.08)',
-                      border: '1px solid rgba(245, 13, 180, 0.1)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      transition: 'all 0.2s ease-in-out',
-                      overflow: 'hidden',
-                      '&:hover': {
-                        transform: 'translateY(-2px)',
-                        boxShadow: '0 8px 24px rgba(245, 13, 180, 0.12)',
-                      }
-                    }}
-                  >
-                    <Box sx={{ 
-                      width: '100%',
-                      aspectRatio: '1',
-                      overflow: 'hidden',
-                      position: 'relative'
-                    }}>
-                      <AvatarGenerator
-                        size="100%"
-                        name={token.name}
-                        variant="beam"
-                        colors={['#F50DB4', '#FEAFF0']}
-                        square={true}
-                      />
-                      <Chip
-                        label={`Weight: ${token.weight.toString()}`}
-                        size="small"
-                        sx={{ 
-                          position: 'absolute',
-                          top: 8,
-                          right: 8,
-                          backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                          color: 'white',
-                          fontWeight: 600,
-                          height: '24px',
-                          backdropFilter: 'blur(4px)',
-                          border: '1px solid rgba(255, 255, 255, 0.2)',
-                          '& .MuiChip-label': {
-                            px: 1,
-                            fontSize: '0.75rem'
-                          }
-                        }}
-                      />
-                    </Box>
-                    <Box sx={{ 
-                      p: 2,
-                      borderTop: '1px solid rgba(245, 13, 180, 0.1)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 1
-                    }}>
-                      <Box>
-                        <Typography sx={{ 
-                          fontSize: '1rem',
-                          fontWeight: 700,
-                          color: '#111',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          mb: 0.5
-                        }}>
-                          {token.name}
-                        </Typography>
-                        <Typography sx={{ 
-                          fontSize: '0.8rem',
-                          color: '#666'
-                        }}>
-                          #{token.id.toString()}
-                        </Typography>
-                      </Box>
-
-                      <Box sx={{ 
+                {nfts.map((token, index) => {
+                  const cachedImage = getCachedNFTImage(token.name);
+                  return (
+                    <Card 
+                      key={index}
+                      onClick={() => setViewToken(token)}
+                      sx={{ 
+                        ...cardStyles,
                         display: 'flex',
                         flexDirection: 'column',
-                        gap: 0.5
-                      }}>
-                        <Typography sx={{ 
-                          fontSize: '0.9rem',
-                          color: '#4CAF50',
-                          fontWeight: 600,
-                          fontFamily: 'Space Grotesk'
-                        }}>
-                          +{formatEther(token.rewards).slice(0, 8)} ETH
-                        </Typography>
-                        <Typography sx={{ 
-                          fontSize: '0.8rem',
-                          color: '#666',
-                          fontFamily: 'Space Grotesk'
-                        }}>
-                          {formatEther(token.claimed).slice(0, 8)} ETH claimed
-                        </Typography>
-                      </Box>
-
+                        transition: 'all 0.2s ease-in-out',
+                        overflow: 'hidden',
+                        cursor: 'pointer',
+                        '&:hover': {
+                          borderColor: '#F50DB4',
+                          transform: 'translateY(-2px)'
+                        }
+                      }}
+                    >
                       <Box sx={{ 
-                        display: 'flex',
-                        gap: 1,
-                        mt: 1
+                        width: '100%',
+                        aspectRatio: '1',
+                        overflow: 'hidden',
+                        position: 'relative'
                       }}>
+                        {cachedImage ? (
+                          <img
+                            src={cachedImage}
+                            alt={token.name}
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'cover',
+                              display: 'block'
+                            }}
+                          />
+                        ) : (
+                          <AvatarGenerator
+                            size="100%"
+                            name={token.name}
+                            variant="beam"
+                            colors={['#F50DB4', '#FEAFF0']}
+                            square={true}
+                          />
+                        )}
+                      </Box>
+                      <Box sx={{ 
+                        p: { xs: 1.5, sm: 2 },
+                        borderTop: '1px solid rgba(245, 13, 180, 0.1)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: { xs: 0.75, sm: 1 }
+                      }}>
+                        <Box sx={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'flex-start'
+                        }}>
+                          <Typography sx={{ 
+                            fontSize: { xs: '0.875rem', sm: '1rem' },
+                            fontWeight: 700,
+                            color: '#111',
+                            flex: 1,
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
+                          }}>
+                            {token.name}
+                          </Typography>
+                          <Typography sx={{ 
+                            fontSize: { xs: '0.75rem', sm: '0.8rem' },
+                            color: '#666',
+                            ml: 1
+                          }}>
+                            #{token.id.toString()}
+                          </Typography>
+                        </Box>
+
+                        <Box sx={{ 
+                          display: 'grid',
+                          gridTemplateColumns: '1fr 1fr',
+                          gap: { xs: 0.75, sm: 1 }
+                        }}>
+                          <Box>
+                            <Typography sx={{ 
+                              fontSize: { xs: '0.875rem', sm: '0.9rem' },
+                              color: '#4CAF50',
+                              fontWeight: 600,
+                              fontFamily: 'Space Grotesk',
+                              lineHeight: 1.2
+                            }}>
+                              +{formatEther(token.rewards).slice(0, 8)}
+                            </Typography>
+                            <Typography sx={{ 
+                              fontSize: { xs: '0.675rem', sm: '0.75rem' },
+                              color: '#666',
+                              fontFamily: 'Space Grotesk'
+                            }}>
+                              ETH Earned
+                            </Typography>
+                          </Box>
+                          <Box>
+                            <Typography sx={{ 
+                              fontSize: { xs: '0.875rem', sm: '0.9rem' },
+                              color: token.weight === 0n ? '#666' : '#111',
+                              fontWeight: 600,
+                              fontFamily: 'Space Grotesk',
+                              lineHeight: 1.2,
+                              textAlign: 'right'
+                            }}>
+                              {token.weight.toString()}
+                            </Typography>
+                            <Typography sx={{ 
+                              fontSize: { xs: '0.675rem', sm: '0.75rem' },
+                              color: '#666',
+                              fontFamily: 'Space Grotesk',
+                              textAlign: 'right'
+                            }}>
+                              Weight
+                            </Typography>
+                          </Box>
+                        </Box>
+
                         {token.weight === 0n ? (
                           <Typography sx={{
                             color: '#666',
-                            fontSize: '0.875rem',
+                            fontSize: { xs: '0.75rem', sm: '0.875rem' },
                             fontStyle: 'italic',
                             textAlign: 'center',
                             width: '100%',
-                            py: 1
+                            py: { xs: 0.75, sm: 1 }
                           }}>
                             Retired
                           </Typography>
                         ) : (
-                          <>
-                            <Button
-                              variant="contained"
-                              size="small"
-                              fullWidth
-                              onClick={() => handleClaimClick(token)}
-                              sx={{ 
-                                backgroundColor: '#F50DB4',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '12px',
-                                '&:hover': {
-                                  backgroundColor: '#d00a9b',
-                                  boxShadow: '0 4px 16px rgba(245, 13, 180, 0.2)'
-                                }
-                              }}
-                            >
-                              Claim
-                            </Button>
-                            <Button
-                              variant="contained"
-                              size="small"
-                              onClick={() => {
-                                // Create a canvas element
-                                const canvas = document.createElement('canvas');
-                                canvas.width = 750;
-                                canvas.height = 750;
-                                const ctx = canvas.getContext('2d');
-
-                                // Create a temporary div to render the avatar
-                                const tempDiv = document.createElement('div');
-                                tempDiv.style.width = '750px';
-                                tempDiv.style.height = '750px';
-                                document.body.appendChild(tempDiv);
-
-                                // Render the avatar to the temp div
-                                const avatar = new AvatarGenerator({
-                                  size: '750px',
-                                  name: token.name,
-                                  variant: 'beam',
-                                  colors: ['#F50DB4', '#FEAFF0'],
-                                  square: true
-                                });
-                                avatar.render(tempDiv);
-
-                                // Convert the SVG to a data URL
-                                const svgElement = tempDiv.querySelector('svg');
-                                const svgData = new XMLSerializer().serializeToString(svgElement);
-                                const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-                                const url = URL.createObjectURL(svgBlob);
-
-                                // Create an image from the SVG
-                                const img = new Image();
-                                img.onload = () => {
-                                  // Draw the image to the canvas
-                                  ctx.drawImage(img, 0, 0, 750, 750);
-                                  
-                                  // Convert canvas to blob and download
-                                  canvas.toBlob((blob) => {
-                                    const url = URL.createObjectURL(blob);
-                                    const a = document.createElement('a');
-                                    a.href = url;
-                                    a.download = `${token.name}-fren.png`;
-                                    document.body.appendChild(a);
-                                    a.click();
-                                    document.body.removeChild(a);
-                                    URL.revokeObjectURL(url);
-                                  }, 'image/png');
-
-                                  // Clean up
-                                  document.body.removeChild(tempDiv);
-                                  URL.revokeObjectURL(url);
-                                };
-                                img.src = url;
-                              }}
-                              sx={{ 
-                                minWidth: '40px',
-                                backgroundColor: '#F50DB4',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '12px',
-                                '&:hover': {
-                                  backgroundColor: '#d00a9b',
-                                  boxShadow: '0 4px 16px rgba(245, 13, 180, 0.2)'
-                                }
-                              }}
-                            >
-                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M12 15L12 3M12 15L8 11M12 15L16 11M3 15V19C3 20.1046 3.89543 21 5 21H19C20.1046 21 21 20.1046 21 19V15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                              </svg>
-                            </Button>
-                          </>
+                          <Button
+                            variant="contained"
+                            size="small"
+                            fullWidth
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleClaimClick(token);
+                            }}
+                            sx={{ 
+                              ...buttonStyles,
+                              border: 'none',
+                              borderRadius: '10px',
+                              py: { xs: 0.75, sm: 1 },
+                              minHeight: 0,
+                              '&:hover': {
+                                backgroundColor: '#d00a9b',
+                                boxShadow: '0 4px 16px rgba(245, 13, 180, 0.2)'
+                              }
+                            }}
+                          >
+                            Claim
+                          </Button>
                         )}
                       </Box>
-                    </Box>
-                  </Card>
-                ))}
+                    </Card>
+                  );
+                })}
               </Box>
             )
           )}
         </Box>
       </Container>
+
+      {/* View Modal */}
+      <FrenViewModal
+        open={!!viewToken}
+        onClose={() => setViewToken(null)}
+        token={viewToken}
+      />
 
       {/* Claim Modal */}
       <ClaimModal

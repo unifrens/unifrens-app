@@ -337,8 +337,8 @@ export const CONTRACT_ABI = [
 		],
 		"name": "VictoryClaimed",
 		"type": "event"
-	},
-	{
+			},
+			{
 		"anonymous": false,
 		"inputs": [
 			{
@@ -358,8 +358,8 @@ export const CONTRACT_ABI = [
 				"internalType": "uint256",
 				"name": "newWeight",
 				"type": "uint256"
-			},
-			{
+	},
+	{
 				"indexed": false,
 				"internalType": "uint8",
 				"name": "reason",
@@ -411,8 +411,8 @@ export const CONTRACT_ABI = [
 		],
 		"stateMutability": "view",
 		"type": "function"
-	},
-	{
+			},
+			{
 		"inputs": [],
 		"name": "MIN_REDISTRIBUTE",
 		"outputs": [
@@ -424,8 +424,8 @@ export const CONTRACT_ABI = [
 		],
 		"stateMutability": "view",
 		"type": "function"
-	},
-	{
+			},
+			{
 		"inputs": [],
 		"name": "MIN_SOFT_WITHDRAW",
 		"outputs": [
@@ -521,8 +521,8 @@ export const CONTRACT_ABI = [
 				"internalType": "bool",
 				"name": "canClaim",
 				"type": "bool"
-			},
-			{
+	},
+	{
 				"internalType": "uint256",
 				"name": "activePositions",
 				"type": "uint256"
