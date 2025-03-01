@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Allow: /faucet
+Allow: /faucet.html
+
+Sitemap: https://unifrens.com/sitemap.xml 

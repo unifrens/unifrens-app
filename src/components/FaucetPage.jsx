@@ -71,7 +71,7 @@ const FaucetPage = () => {
         return;
       }
 
-      const response = await fetch('http://188.245.181.236:3002/drip', {
+      const response = await fetch('https://faucet.unifrens.com/drip', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
