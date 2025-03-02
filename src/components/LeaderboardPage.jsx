@@ -21,28 +21,28 @@ const formatAddress = (address) => {
 };
 
 const getWeightTier = (weight) => {
-  if (weight >= 101) return {
+  if (weight === 1000) return {
     label: 'Legendary',
     colors: {
       bg: 'rgba(255, 185, 15, 0.15)',
       text: '#FFB90F'
     }
   };
-  if (weight >= 75) return {
+  if (weight >= 500) return {
     label: 'Epic',
     colors: {
       bg: 'rgba(147, 51, 234, 0.15)',
       text: '#9333EA'
     }
   };
-  if (weight >= 50) return {
+  if (weight >= 250) return {
     label: 'Rare',
     colors: {
       bg: 'rgba(59, 130, 246, 0.15)',
       text: '#3B82F6'
     }
   };
-  if (weight >= 25) return {
+  if (weight >= 100) return {
     label: 'Uncommon',
     colors: {
       bg: 'rgba(34, 197, 94, 0.15)',
@@ -205,11 +205,14 @@ const LeaderboardPage = () => {
   }, [nfts]);
 
   // Add a helper function to format ETH values with fixed width
-  const formatETHValue = (value) => {
-    if (!value && value !== 0) return '0.000000000000000000';
+  const formatETHValue = (value, isGlobalStat = false) => {
+    if (!value && value !== 0) return isGlobalStat ? '0.0000' : '0.000000000000000000 ETH';
+    if (isGlobalStat) {
+      return value.toFixed(4);
+    }
     const fixed = value.toFixed(18);
     const [whole, decimal] = fixed.split('.');
-    return `${whole}.${decimal.padEnd(18, '0')}`;
+    return `${whole}.${decimal.padEnd(18, '0')} ETH`;
   };
 
   return (
@@ -264,7 +267,7 @@ const LeaderboardPage = () => {
               display: 'grid',
               gridTemplateColumns: { 
                 xs: 'repeat(2, 1fr)',
-                sm: 'repeat(2, 180px)'
+                sm: 'repeat(3, 180px)'
               },
               gap: { xs: 1, sm: 3 },
               mt: { xs: 3, sm: 4 },
@@ -336,6 +339,41 @@ const LeaderboardPage = () => {
                   Frens Minted
                 </Typography>
               </Box>
+
+              <Box sx={{ 
+                gridColumn: { xs: '1 / -1', sm: 'auto' },
+                p: { xs: 1.5, sm: 2.5 },
+                textAlign: 'center',
+                position: 'relative',
+                borderRadius: 2,
+                backgroundColor: 'white',
+                border: '1px solid rgba(245, 13, 180, 0.1)',
+                boxShadow: '0 4px 24px rgba(245, 13, 180, 0.08)'
+              }}>
+                <Typography sx={{ 
+                  color: '#666', 
+                  mb: { xs: 0.5, sm: 1 },
+                  fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                }}>
+                  Total Pending
+                </Typography>
+                <Typography sx={{ 
+                  fontSize: { xs: '1.125rem', sm: '2rem' },
+                  color: '#111',
+                  fontWeight: 700,
+                  lineHeight: 1,
+                  mb: { xs: 0.5, sm: 1 },
+                  fontFamily: 'monospace'
+                }}>
+                  {formatETHValue(Object.values(animatedBalances).reduce((sum, val) => sum + val, 0), true)}
+                </Typography>
+                <Typography sx={{ 
+                  color: '#666',
+                  fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                }}>
+                  ETH Balance
+                </Typography>
+              </Box>
             </Box>
           )}
 
@@ -375,16 +413,16 @@ const LeaderboardPage = () => {
           justifyContent: 'center'
         }}>
           {[
-            { weight: 1, max: 24, label: 'Common' },
-            { weight: 25, max: 49, label: 'Uncommon' },
-            { weight: 50, max: 74, label: 'Rare' },
-            { weight: 75, max: 100, label: 'Epic' },
-            { weight: 101, max: null, label: 'Legendary' }
+            { weight: 1, max: 99, label: 'Common' },
+            { weight: 100, max: 249, label: 'Uncommon' },
+            { weight: 250, max: 499, label: 'Rare' },
+            { weight: 500, max: 999, label: 'Epic' },
+            { weight: 1000, max: null, label: 'Legendary' }
           ].map((tier) => (
             <Chip
               key={tier.label}
               size="small"
-              label={`${tier.label} ${tier.max ? `(${tier.weight}-${tier.max}×)` : `(${tier.weight}+×)`}`}
+              label={`${tier.label} ${tier.max ? `(${tier.weight}-${tier.max}×)` : `(${tier.weight}×)`}`}
               sx={{
                 height: '24px',
                 backgroundColor: getWeightTier(tier.weight).colors.bg,
@@ -443,59 +481,32 @@ const LeaderboardPage = () => {
               <TableHead>
                 <TableRow sx={{ backgroundColor: 'rgba(245, 13, 180, 0.04)' }}>
                   <TableCell sx={{ 
-                    fontWeight: 700,
-                    color: '#111',
-                    fontSize: '0.8rem',
-                    py: 2.5,
+                    py: 2,
                     textAlign: 'center',
-                    width: { xs: '40px', sm: 'auto' }
-                  }}>
-                    Rank
-                  </TableCell>
+                    width: { xs: '32px', sm: '50px' },
+                    px: { xs: 1, sm: 2 }
+                  }}/>
                   <TableCell sx={{ 
-                    fontWeight: 700,
-                    color: '#111',
-                    fontSize: '0.8rem'
-                  }}>
-                    Name
-                  </TableCell>
+                    px: { xs: 1, sm: 2 },
+                    width: { sm: '40%' }
+                  }}/>
                   <TableCell sx={{ 
-                    fontWeight: 700,
-                    color: '#111',
-                    fontSize: '0.8rem',
-                    textAlign: 'center'
-                  }}>
-                    True Pos.
-                  </TableCell>
-                  <TableCell sx={{ 
-                    fontWeight: 700,
-                    color: '#111',
-                    fontSize: '0.8rem',
                     textAlign: 'center',
-                    display: { xs: 'none', sm: 'table-cell' }
-                  }}>
-                    Weight
-                  </TableCell>
+                    px: { xs: 1, sm: 2 },
+                    width: { xs: '35px', sm: '80px' }
+                  }}/>
                   <TableCell sx={{ 
-                    fontWeight: 700,
-                    color: '#111',
-                    fontSize: '0.8rem',
-                    textAlign: 'right',
-                    pr: 3,
-                    display: { xs: 'none', sm: 'table-cell' }
-                  }}>
-                    Pending
-                  </TableCell>
+                    textAlign: 'center',
+                    px: { xs: 1, sm: 2 },
+                    width: { xs: '35px', sm: '80px' }
+                  }}/>
                   <TableCell sx={{ 
-                    fontWeight: 700,
-                    color: '#111',
-                    fontSize: '0.8rem',
                     textAlign: 'right',
-                    pr: 3,
+                    pr: { xs: 1, sm: 3 },
+                    pl: { xs: 1, sm: 2 },
+                    width: { xs: '100px', sm: '20%' },
                     display: { xs: 'none', sm: 'table-cell' }
-                  }}>
-                    Total
-                  </TableCell>
+                  }}/>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -518,10 +529,11 @@ const LeaderboardPage = () => {
                       <TableCell sx={{ 
                         py: 2,
                         textAlign: 'center',
-                        width: { xs: '40px', sm: 'auto' }
+                        width: { xs: '32px', sm: '50px' },
+                        px: { xs: 1, sm: 2 }
                       }}>
                         <Typography sx={{
-                          fontSize: { xs: '0.8rem', sm: '0.9rem' },
+                          fontSize: { xs: '0.75rem', sm: '0.9rem' },
                           fontWeight: 700,
                           color: nft.weight === 0 ? '#666' : (index < 3 ? '#F50DB4' : '#666'),
                           opacity: nft.weight === 0 ? 0.5 : (index < 3 ? 1 : 0.7)
@@ -529,11 +541,14 @@ const LeaderboardPage = () => {
                           {nft.weight === 0 ? '-' : `#${index + 1}`}
                         </Typography>
                       </TableCell>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                      <TableCell sx={{ 
+                        px: { xs: 1, sm: 2 },
+                        width: { sm: '40%' }
+                      }}>
+                        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: { xs: 1, sm: 1.5 } }}>
                           <Box sx={{ 
-                            width: '32px',
-                            height: '32px',
+                            width: { xs: '32px', sm: '32px' },
+                            height: { xs: '32px', sm: '32px' },
                             borderRadius: '50%',
                             overflow: 'hidden',
                             flexShrink: 0,
@@ -548,129 +563,86 @@ const LeaderboardPage = () => {
                             />
                           </Box>
                           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, minWidth: 0, flex: 1 }}>
-                            <Box sx={{ 
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 1,
-                              minWidth: 0,
-                              flexWrap: { xs: 'wrap', sm: 'nowrap' }
-                            }}>
-                              <Typography 
-                                sx={{
-                                  fontSize: '0.9rem',
-                                  fontWeight: 600,
-                                  color: '#111',
-                                  minWidth: 0
-                                }}
-                              >
-                                {nft.name}
-                              </Typography>
-                              {nft.weight > 0 && (
-                                <Box 
-                                  component="span" 
-                                  sx={{ 
-                                    display: { xs: 'inline-flex', sm: 'none' },
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    height: '18px',
-                                    px: 0.75,
-                                    borderRadius: '10px',
-                                    backgroundColor: getWeightTier(nft.weight).colors.bg,
-                                    color: getWeightTier(nft.weight).colors.text,
-                                    fontSize: '0.7rem',
-                                    fontWeight: 600,
-                                    fontFamily: 'Space Grotesk',
-                                    flexShrink: 0
-                                  }}
-                                >
-                                  {nft.weight}×
-                                </Box>
-                              )}
-                            </Box>
                             <Typography 
-                              sx={{ 
-                                color: '#666',
-                                fontSize: '0.7rem',
-                                fontFamily: 'monospace',
-                                opacity: 0.8
+                              sx={{
+                                fontSize: { xs: '0.8rem', sm: '0.9rem' },
+                                fontWeight: 600,
+                                color: '#111',
+                                minWidth: 0
                               }}
                             >
-                              {walletData.isConnected && walletData.address.toLowerCase() === nft.owner.toLowerCase() ? (
-                                <Box component="span" sx={{ 
-                                  color: '#F50DB4',
-                                  fontWeight: 600,
-                                  fontFamily: 'Space Grotesk'
-                                }}>
-                                  YOU
-                                </Box>
-                              ) : formatAddress(nft.owner)}
+                              {nft.name}
                             </Typography>
+                            <Box sx={{ 
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: 0.25
+                            }}>
+                              <Typography 
+                                sx={{ 
+                                  color: '#666',
+                                  fontSize: { xs: '0.65rem', sm: '0.7rem' },
+                                  fontFamily: 'monospace',
+                                  opacity: 0.8
+                                }}
+                              >
+                                {walletData.isConnected && walletData.address.toLowerCase() === nft.owner.toLowerCase() ? (
+                                  <Box component="span" sx={{ 
+                                    color: '#F50DB4',
+                                    fontWeight: 600,
+                                    fontFamily: 'Space Grotesk'
+                                  }}>
+                                    YOU
+                                  </Box>
+                                ) : formatAddress(nft.owner)}
+                              </Typography>
+                              <Typography 
+                                sx={{ 
+                                  display: { xs: 'block', sm: 'none' },
+                                  fontFamily: 'monospace',
+                                  fontSize: '0.65rem',
+                                  color: '#111',
+                                  opacity: 0.9,
+                                  whiteSpace: 'nowrap'
+                                }}
+                              >
+                                {nft.weight === 0 ? '-' : formatETHValue(animatedBalances[nft.tokenId] || 0)}
+                              </Typography>
+                            </Box>
                           </Box>
                         </Box>
                       </TableCell>
                       <TableCell sx={{ 
                         textAlign: 'center',
-                        px: { xs: 0.5, sm: 2 },
-                        minWidth: { xs: '90px', sm: 'auto' },
-                        width: { xs: '90px', sm: 'auto' }
+                        px: { xs: 1, sm: 2 },
+                        width: { xs: '35px', sm: '80px' }
                       }}>
                         {nft.weight === 0 ? (
                           <Typography sx={{ 
                             color: '#666',
-                            fontSize: '0.8rem',
+                            fontSize: { xs: '0.65rem', sm: '0.8rem' },
                             opacity: 0.7,
                             fontStyle: 'italic'
                           }}>
                             -
                           </Typography>
                         ) : (
-                          <Box sx={{ 
-                            display: 'flex', 
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: { xs: 0.25, sm: 0.5 }
+                          <Typography sx={{ 
+                            fontSize: { xs: '0.65rem', sm: '0.85rem' }
                           }}>
-                            <Typography sx={{ 
-                              fontSize: { xs: '0.75rem', sm: '0.85rem' },
-                              flexShrink: 0
-                            }}>
-                              #{truePosition}
-                            </Typography>
-                            {nft.tokenId > truePosition && (
-                              <Box component="span" sx={{ 
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                height: { xs: '16px', sm: '20px' },
-                                px: { xs: 0.35, sm: 0.75 },
-                                borderRadius: '10px',
-                                backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                                color: '#22C55E',
-                                fontSize: { xs: '0.65rem', sm: '0.75rem' },
-                                fontWeight: 600,
-                                fontFamily: 'Space Grotesk',
-                                flexShrink: 0,
-                                '&::before': {
-                                  content: '"▲"',
-                                  fontSize: '0.6rem',
-                                  marginRight: '2px'
-                                }
-                              }}>
-                                +{nft.tokenId - truePosition}
-                              </Box>
-                            )}
-                          </Box>
+                            {truePosition}
+                          </Typography>
                         )}
                       </TableCell>
                       <TableCell sx={{ 
-                        display: { xs: 'none', sm: 'table-cell' },
-                        textAlign: 'center', 
-                        px: { xs: 0.5, sm: 2 },
-                        width: { xs: '60px', sm: 'auto' }
+                        textAlign: 'center',
+                        px: { xs: 1, sm: 2 },
+                        width: { xs: '35px', sm: '80px' }
                       }}>
                         {nft.weight === 0 ? (
                           <Typography sx={{ 
                             color: '#666',
-                            fontSize: '0.8rem',
+                            fontSize: { xs: '0.65rem', sm: '0.8rem' },
                             opacity: 0.7,
                             fontStyle: 'italic'
                           }}>
@@ -681,54 +653,33 @@ const LeaderboardPage = () => {
                             display: 'inline-flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            height: { xs: '18px', sm: '20px' },
+                            height: { xs: '16px', sm: '20px' },
                             px: { xs: 0.5, sm: 0.75 },
-                            borderRadius: '10px',
+                            borderRadius: '8px',
                             backgroundColor: getWeightTier(nft.weight).colors.bg,
                             color: getWeightTier(nft.weight).colors.text,
-                            fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                            fontSize: { xs: '0.65rem', sm: '0.75rem' },
                             fontWeight: 600,
                             fontFamily: 'Space Grotesk',
                             whiteSpace: 'nowrap'
                           }}>
-                            {nft.weight}×
+                            {nft.weight}
                           </Box>
                         )}
                       </TableCell>
                       <TableCell sx={{ 
+                        textAlign: 'right',
+                        pr: { xs: 1, sm: 3 },
+                        pl: { xs: 1, sm: 2 },
+                        width: { xs: '100px', sm: '20%' },
                         display: { xs: 'none', sm: 'table-cell' },
-                        width: '200px', // Fixed width for the cell
-                        minWidth: '200px'
+                        whiteSpace: 'nowrap'
                       }}>
-                        <Typography sx={{ 
-                          color: '#4CAF50',
-                          fontWeight: 600,
-                          fontSize: '0.85rem',
-                          fontFamily: 'monospace', // Use monospace for fixed-width characters
-                          whiteSpace: 'pre', // Preserve whitespace
-                          textAlign: 'right',
-                          pr: 3
-                        }}>
-                          {formatETHValue(animatedBalances[nft.tokenId] || parseFloat(nft.pendingRewards || '0'))}&nbsp;ETH
-                        </Typography>
-                      </TableCell>
-                      <TableCell sx={{ 
-                        display: { xs: 'none', sm: 'table-cell' },
-                        width: '200px', // Fixed width for the cell
-                        minWidth: '200px'
-                      }}>
-                        <Typography sx={{ 
-                          color: '#F50DB4',
-                          fontWeight: 600,
-                          fontSize: '0.85rem',
-                          fontFamily: 'monospace', // Use monospace for fixed-width characters
-                          whiteSpace: 'pre', // Preserve whitespace
-                          opacity: 0.9,
-                          textAlign: 'right',
-                          pr: 3
-                        }}>
-                          {formatETHValue(parseFloat(nft.totalClaimed || '0'))}&nbsp;ETH
-                        </Typography>
+                        {nft.weight === 0 ? (
+                          '-'
+                        ) : (
+                          formatETHValue(animatedBalances[nft.tokenId] || 0)
+                        )}
                       </TableCell>
                     </TableRow>
                   );

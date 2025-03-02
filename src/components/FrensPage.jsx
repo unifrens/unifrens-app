@@ -19,6 +19,7 @@ import AirdropAnnouncement from './common/announcements/AirdropAnnouncement';
 import DiscordWarningAnnouncement from './common/announcements/DiscordWarningAnnouncement';
 import FrenViewModal from './FrenViewModal';
 import { preloadNFTImage, getCachedNFTImage } from '../utils/imageCache';
+import { useRewards } from '../context/RewardsContext';
 
 const publicClient = createPublicClient({
   chain: unichainSepolia,
@@ -181,6 +182,7 @@ const FrensPage = () => {
   });
   const [refreshCooldown, setRefreshCooldown] = useState(false);
   const [viewToken, setViewToken] = useState(null);
+  const { setTotalPendingRewards } = useRewards();
 
   const formatAddress = (address) => {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -432,6 +434,12 @@ const FrensPage = () => {
   const getTotalClaimedRewards = () => {
     return nfts.reduce((sum, token) => sum + token.claimed, BigInt(0));
   };
+
+  // Update the total rewards whenever nfts changes
+  useEffect(() => {
+    const total = getTotalPendingRewards();
+    setTotalPendingRewards(total);
+  }, [nfts, setTotalPendingRewards]);
 
   const handleClaimClick = async (token) => {
     try {

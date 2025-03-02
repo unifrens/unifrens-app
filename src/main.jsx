@@ -8,9 +8,12 @@ import FrensPage from './components/FrensPage'
 import LeaderboardPage from './components/LeaderboardPage'
 import PlayPage from './components/PlayPage'
 import FaucetPage from './components/FaucetPage'
+import ProfileSettingsPage from './components/ProfileSettingsPage'
+import UtilitiesPage from './pages/UtilitiesPage'
 import './styles.css'
 import './wallet'
 import { initAnalytics } from './firebase'
+import { RewardsProvider } from './context/RewardsContext'
 
 const router = createBrowserRouter([
   { path: '/', element: <App /> },
@@ -19,7 +22,9 @@ const router = createBrowserRouter([
   { path: '/frens', element: <FrensPage /> },
   { path: '/leaderboard', element: <LeaderboardPage /> },
   { path: '/play', element: <PlayPage /> },
-  { path: '/faucet', element: <FaucetPage /> }
+  { path: '/faucet', element: <FaucetPage /> },
+  { path: '/profile', element: <ProfileSettingsPage /> },
+  { path: '/utilities', element: <UtilitiesPage /> }
 ])
 
 // Error handling for production
@@ -39,7 +44,9 @@ initAnalytics().catch(console.error);
 try {
   root.render(
     <StrictMode>
-      <RouterProvider router={router} />
+      <RewardsProvider>
+        <RouterProvider router={router} />
+      </RewardsProvider>
     </StrictMode>
   );
 } catch (error) {

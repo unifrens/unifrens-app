@@ -1,4 +1,4 @@
-import { AppBar, Box, IconButton, Toolbar, Drawer, List, ListItem, ListItemText, Container, Typography, ListItemIcon, Button, Link as MuiLink } from '@mui/material';
+import { AppBar, Box, IconButton, Toolbar, Drawer, List, ListItem, ListItemText, Container, Typography, ListItemIcon, Button, Link as MuiLink, Avatar } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import CloseIcon from '@mui/icons-material/Close';
 import GroupIcon from '@mui/icons-material/Group';
@@ -12,6 +12,7 @@ import MenuBookIcon from '@mui/icons-material/MenuBook';
 import CasinoIcon from '@mui/icons-material/Casino';
 import LocalAtmIcon from '@mui/icons-material/LocalAtm';
 import WaterDropIcon from '@mui/icons-material/WaterDrop';
+import PersonIcon from '@mui/icons-material/Person';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { createPublicClient, http, formatEther } from 'viem';
@@ -22,6 +23,8 @@ import githubIcon from '../assets/github-142-svgrepo-com.svg';
 import gitbookIcon from '../assets/gitbook-svgrepo-com.svg';
 import { BackgroundPattern } from '../App';
 import { buttonStyles } from '../styles/theme';
+import AvatarGenerator from '../components/AvatarGenerator';
+import { useRewards } from '../context/RewardsContext';
 
 const publicClient = createPublicClient({
   chain: unichainSepolia,
@@ -38,8 +41,11 @@ const Navbar = () => {
     networkName: '',
     isValidNetwork: false
   });
+  const [profileData, setProfileData] = useState(null);
+  const [userFrens, setUserFrens] = useState([]);
   const location = useLocation();
   const navigate = useNavigate();
+  const { totalPendingRewards } = useRewards();
 
   const toggleDrawer = (open) => (event) => {
     if (event.type === 'keydown' && (event.key === 'Tab' || event.key === 'Shift')) {
@@ -69,6 +75,19 @@ const Navbar = () => {
               networkName,
               isValidNetwork
             });
+
+            // Fetch user's frens when wallet is connected
+            try {
+              const response = await fetch('https://imgs.unifrens.com/leaderboard/nfts');
+              const data = await response.json();
+              const userNFTs = data.nfts.filter(nft => 
+                nft.owner.toLowerCase() === accounts[0].toLowerCase()
+              );
+              setUserFrens(userNFTs);
+            } catch (error) {
+              console.error('Error fetching NFTs:', error);
+              setUserFrens([]);
+            }
           } catch (error) {
             // If balance fetch fails due to rate limit, keep other data but clear balance
             setWalletData({ 
@@ -85,6 +104,7 @@ const Navbar = () => {
             networkName: '',
             isValidNetwork: false
           });
+          setUserFrens([]);
         }
       } catch (error) {
         console.error('Error checking wallet status:', error);
@@ -94,6 +114,7 @@ const Navbar = () => {
           networkName: '',
           isValidNetwork: false
         });
+        setUserFrens([]);
       }
     };
 
@@ -115,6 +136,27 @@ const Navbar = () => {
         window.ethereum.removeListener('accountsChanged', checkWalletStatus);
         window.ethereum.removeListener('chainChanged', checkWalletStatus);
       }
+    };
+  }, []);
+
+  useEffect(() => {
+    // Load profile data from localStorage
+    const loadProfileData = () => {
+      const savedProfile = localStorage.getItem('profileData');
+      if (savedProfile) {
+        setProfileData(JSON.parse(savedProfile));
+      } else {
+        setProfileData(null);
+      }
+    };
+
+    loadProfileData();
+    window.addEventListener('storage', loadProfileData);
+    // Add listener for custom profileUpdate event
+    window.addEventListener('profileUpdate', loadProfileData);
+    return () => {
+      window.removeEventListener('storage', loadProfileData);
+      window.removeEventListener('profileUpdate', loadProfileData);
     };
   }, []);
 
@@ -255,6 +297,50 @@ const Navbar = () => {
               height: { xs: 40, sm: 40 }  // Match height with logo container
             }}>
               <IconButton
+                component={Link}
+                to="/profile"
+                sx={{
+                  width: 40,
+                  height: 40,
+                  mr: 1,
+                  position: 'relative',
+                  zIndex: 1,
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '12px',
+                  p: 0.75,
+                  '&:hover': {
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)'
+                  }
+                }}
+              >
+                {(walletData.address && walletData.isValidNetwork && profileData) ? (
+                  <Box sx={{ 
+                    width: '100%',
+                    height: '100%',
+                    borderRadius: '50%',
+                    overflow: 'hidden'
+                  }}>
+                    <AvatarGenerator
+                      size="100%"
+                      name={profileData.name}
+                      variant="beam"
+                      colors={['#F50DB4', '#FEAFF0']}
+                    />
+                  </Box>
+                ) : (
+                  <Avatar 
+                    sx={{ 
+                      width: '100%',
+                      height: '100%',
+                      bgcolor: 'rgba(0, 0, 0, 0.2)',
+                      color: 'white'
+                    }}
+                  >
+                    <PersonIcon sx={{ fontSize: '1.25rem' }} />
+                  </Avatar>
+                )}
+              </IconButton>
+              <IconButton
                 color="inherit"
                 aria-label="menu"
                 onClick={toggleDrawer(true)}
@@ -297,43 +383,175 @@ const Navbar = () => {
         <Box sx={{ 
           p: 2,
           display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          borderBottom: '1px solid rgba(245, 13, 180, 0.1)'
+          flexDirection: 'column',
+          gap: 2
         }}>
-          <Box 
-            component="img"
-            src={logo}
-            alt="Unichain Frens"
-            sx={{ 
-              height: 32,
-              filter: 'brightness(0) saturate(100%) invert(19%) sepia(91%) saturate(4929%) hue-rotate(315deg) brightness(94%) contrast(98%)'
+          {/* Header with Logo and Close */}
+          <Box sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}>
+            <Box 
+              component="img"
+              src={logo}
+              alt="Unichain Frens"
+              sx={{ 
+                height: 32,
+                filter: 'brightness(0) saturate(100%) invert(19%) sepia(91%) saturate(4929%) hue-rotate(315deg) brightness(94%) contrast(98%)'
+              }}
+            />
+            <IconButton
+              onClick={toggleDrawer(false)}
+              sx={{
+                color: '#666',
+                width: 40,
+                height: 40,
+                '&:hover': {
+                  backgroundColor: 'rgba(245, 13, 180, 0.04)',
+                  color: '#F50DB4'
+                }
+              }}
+            >
+              <CloseIcon />
+            </IconButton>
+          </Box>
+
+          {/* Profile Settings Button */}
+          <ListItem 
+            component={walletData.address ? Link : 'button'}
+            to="/profile"
+            onClick={(e) => {
+              if (!walletData.address) {
+                handleConnect();
+              } else {
+                toggleDrawer(false)(e);
+              }
             }}
-          />
-          <IconButton
-            onClick={toggleDrawer(false)}
             sx={{
-              color: '#666',
-              width: 40,
-              height: 40,
+              borderRadius: '12px',
+              p: { xs: 1, sm: 1.5 },
+              backgroundColor: location.pathname === '/profile' ? 'rgba(245, 13, 180, 0.04)' : 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              width: '100%',
               '&:hover': {
-                backgroundColor: 'rgba(245, 13, 180, 0.04)',
-                color: '#F50DB4'
+                backgroundColor: 'rgba(245, 13, 180, 0.08)',
               }
             }}
           >
-            <CloseIcon />
-          </IconButton>
+            <ListItemIcon sx={{ 
+              minWidth: { xs: 32, sm: 40 },
+              color: location.pathname === '/profile' ? '#F50DB4' : '#666'
+            }}>
+              {(walletData.address && walletData.isValidNetwork && profileData) ? (
+                <Box sx={{ 
+                  width: { xs: 20, sm: 24 },
+                  height: { xs: 20, sm: 24 },
+                  borderRadius: '50%',
+                  overflow: 'hidden'
+                }}>
+                  <AvatarGenerator
+                    size="100%"
+                    name={profileData.name}
+                    variant="beam"
+                    colors={['#F50DB4', '#FEAFF0']}
+                  />
+                </Box>
+              ) : (
+                <PersonIcon sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' } }} />
+              )}
+            </ListItemIcon>
+            <ListItemText 
+              primary="Profile Settings"
+              secondary={walletData.address && walletData.isValidNetwork && profileData ? `${profileData.name}.fren` : 'Connect Wallet'}
+              sx={{
+                '& .MuiListItemText-primary': {
+                  fontSize: { xs: '0.875rem', sm: '0.95rem' },
+                  fontWeight: 600,
+                  color: location.pathname === '/profile' ? '#F50DB4' : '#111'
+                },
+                '& .MuiListItemText-secondary': {
+                  fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                  color: '#666',
+                  fontFamily: 'monospace'
+                }
+              }}
+            />
+          </ListItem>
+
+          {/* Stats Row */}
+          <Box sx={{
+            display: 'flex',
+            gap: { xs: 2, sm: 3 },
+            px: { xs: 1.5, sm: 2 }
+          }}>
+            <Box>
+              <Typography sx={{ 
+                fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                color: '#666',
+                mb: 0.5
+              }}>
+                Total Frens
+              </Typography>
+              <Typography sx={{ 
+                fontSize: { xs: '1rem', sm: '1.1rem' },
+                fontWeight: 700,
+                color: '#111',
+                fontFamily: 'Space Grotesk'
+              }}>
+                {userFrens?.length || 0}
+              </Typography>
+            </Box>
+            <Box>
+              <Typography sx={{ 
+                fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                color: '#666',
+                mb: 0.5
+              }}>
+                Balance
+              </Typography>
+              <Typography sx={{ 
+                fontSize: { xs: '1rem', sm: '1.1rem' },
+                fontWeight: 700,
+                color: '#111',
+                fontFamily: 'Space Grotesk'
+              }}>
+                {walletData.walletBalance || '0.00'} ETH
+              </Typography>
+            </Box>
+            <Box>
+              <Typography sx={{ 
+                fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                color: '#666',
+                mb: 0.5
+              }}>
+                Claimable
+              </Typography>
+              <Typography sx={{ 
+                fontSize: { xs: '1rem', sm: '1.1rem' },
+                fontWeight: 700,
+                color: '#4CAF50',
+                fontFamily: 'Space Grotesk'
+              }}>
+                {formatEther(totalPendingRewards).slice(0, 8)} ETH
+              </Typography>
+            </Box>
+          </Box>
         </Box>
 
-        <List sx={{ p: 2, pt: 0 }}>
+        <List sx={{ 
+          p: { xs: 1.5, sm: 2 }, 
+          pt: 0 
+        }}>
           <ListItem 
             component={Link} 
             to="/mint"
             onClick={toggleDrawer(false)}
             sx={{
               borderRadius: '12px',
-              mb: 1,
+              mb: { xs: 0.5, sm: 1 },
+              py: { xs: 1, sm: 1.5 },
               backgroundColor: location.pathname === '/mint' ? 'rgba(245, 13, 180, 0.04)' : 'transparent',
               '&:hover': {
                 backgroundColor: 'rgba(245, 13, 180, 0.08)',
@@ -341,16 +559,16 @@ const Navbar = () => {
             }}
           >
             <ListItemIcon sx={{ 
-              minWidth: 40,
+              minWidth: { xs: 32, sm: 40 },
               color: location.pathname === '/mint' ? '#F50DB4' : '#666'
             }}>
-              <AddCircleIcon />
+              <AddCircleIcon sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' } }} />
             </ListItemIcon>
             <ListItemText 
               primary="Mint Fren" 
               sx={{
                 '& .MuiListItemText-primary': {
-                  fontSize: '0.95rem',
+                  fontSize: { xs: '0.875rem', sm: '0.95rem' },
                   fontWeight: 600,
                   color: location.pathname === '/mint' ? '#F50DB4' : '#111'
                 }
@@ -364,7 +582,8 @@ const Navbar = () => {
             onClick={toggleDrawer(false)}
             sx={{
               borderRadius: '12px',
-              mb: 1,
+              mb: { xs: 0.5, sm: 1 },
+              py: { xs: 1, sm: 1.5 },
               backgroundColor: location.pathname === '/frens' ? 'rgba(245, 13, 180, 0.04)' : 'transparent',
               '&:hover': {
                 backgroundColor: 'rgba(245, 13, 180, 0.08)',
@@ -372,16 +591,16 @@ const Navbar = () => {
             }}
           >
             <ListItemIcon sx={{ 
-              minWidth: 40,
+              minWidth: { xs: 32, sm: 40 },
               color: location.pathname === '/frens' ? '#F50DB4' : '#666'
             }}>
-              <GroupIcon />
+              <GroupIcon sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' } }} />
             </ListItemIcon>
             <ListItemText 
               primary="My Frens" 
               sx={{
                 '& .MuiListItemText-primary': {
-                  fontSize: '0.95rem',
+                  fontSize: { xs: '0.875rem', sm: '0.95rem' },
                   fontWeight: 600,
                   color: location.pathname === '/frens' ? '#F50DB4' : '#111'
                 }
@@ -391,8 +610,10 @@ const Navbar = () => {
 
           <ListItem 
             sx={{
+              display: 'none', // Hide Fren Swap
               borderRadius: '12px',
-              mb: 1,
+              mb: { xs: 0.5, sm: 1 },
+              py: { xs: 1, sm: 1.5 },
               opacity: 0.5,
               cursor: 'default',
               '&:hover': {
@@ -401,16 +622,16 @@ const Navbar = () => {
             }}
           >
             <ListItemIcon sx={{ 
-              minWidth: 40,
+              minWidth: { xs: 32, sm: 40 },
               color: '#666'
             }}>
-              <SwapHorizIcon />
+              <SwapHorizIcon sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' } }} />
             </ListItemIcon>
             <ListItemText 
               primary="Fren Swap" 
               sx={{
                 '& .MuiListItemText-primary': {
-                  fontSize: '0.95rem',
+                  fontSize: { xs: '0.875rem', sm: '0.95rem' },
                   fontWeight: 600,
                   color: '#111'
                 }
@@ -424,7 +645,8 @@ const Navbar = () => {
             onClick={toggleDrawer(false)}
             sx={{
               borderRadius: '12px',
-              mb: 1,
+              mb: { xs: 0.5, sm: 1 },
+              py: { xs: 1, sm: 1.5 },
               backgroundColor: location.pathname === '/leaderboard' ? 'rgba(245, 13, 180, 0.04)' : 'transparent',
               '&:hover': {
                 backgroundColor: 'rgba(245, 13, 180, 0.08)',
@@ -432,16 +654,16 @@ const Navbar = () => {
             }}
           >
             <ListItemIcon sx={{ 
-              minWidth: 40,
+              minWidth: { xs: 32, sm: 40 },
               color: location.pathname === '/leaderboard' ? '#F50DB4' : '#666'
             }}>
-              <LeaderboardIcon />
+              <LeaderboardIcon sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' } }} />
             </ListItemIcon>
             <ListItemText 
               primary="Leaderboard" 
               sx={{
                 '& .MuiListItemText-primary': {
-                  fontSize: '0.95rem',
+                  fontSize: { xs: '0.875rem', sm: '0.95rem' },
                   fontWeight: 600,
                   color: location.pathname === '/leaderboard' ? '#F50DB4' : '#111'
                 }
@@ -455,7 +677,8 @@ const Navbar = () => {
             onClick={toggleDrawer(false)}
             sx={{
               borderRadius: '12px',
-              mb: 1,
+              mb: { xs: 0.5, sm: 1 },
+              py: { xs: 1, sm: 1.5 },
               backgroundColor: location.pathname === '/play' ? 'rgba(245, 13, 180, 0.04)' : 'transparent',
               '&:hover': {
                 backgroundColor: 'rgba(245, 13, 180, 0.08)',
@@ -463,13 +686,14 @@ const Navbar = () => {
             }}
           >
             <ListItemIcon sx={{ 
+              minWidth: { xs: 32, sm: 40 },
               minWidth: 40,
               color: location.pathname === '/play' ? '#F50DB4' : '#666'
             }}>
               <CasinoIcon />
             </ListItemIcon>
             <ListItemText 
-              primary="Play & Win" 
+              primary="Games" 
               sx={{
                 '& .MuiListItemText-primary': {
                   fontSize: '0.95rem',
@@ -512,7 +736,39 @@ const Navbar = () => {
           </ListItem>
 
           <ListItem 
+            component={Link} 
+            to="/utilities"
+            onClick={toggleDrawer(false)}
             sx={{
+              borderRadius: '12px',
+              mb: 1,
+              backgroundColor: location.pathname === '/utilities' ? 'rgba(245, 13, 180, 0.04)' : 'transparent',
+              '&:hover': {
+                backgroundColor: 'rgba(245, 13, 180, 0.08)',
+              }
+            }}
+          >
+            <ListItemIcon sx={{ 
+              minWidth: 40,
+              color: location.pathname === '/utilities' ? '#F50DB4' : '#666'
+            }}>
+              <LocalAtmIcon />
+            </ListItemIcon>
+            <ListItemText 
+              primary="Utilities" 
+              sx={{
+                '& .MuiListItemText-primary': {
+                  fontSize: '0.95rem',
+                  fontWeight: 600,
+                  color: location.pathname === '/utilities' ? '#F50DB4' : '#111'
+                }
+              }}
+            />
+          </ListItem>
+
+          <ListItem 
+            sx={{
+              display: 'none', // Hide Activity
               borderRadius: '12px',
               mb: 1,
               opacity: 0.5,
@@ -573,284 +829,65 @@ const Navbar = () => {
           </ListItem>
         </List>
 
-        {walletData.address ? (
-          <Box sx={{ mt: 'auto' }}>
-            <Box sx={{ 
-              p: 2,
-              borderTop: '1px solid rgba(245, 13, 180, 0.1)',
-            }}>
-              <Box sx={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 0.75
-              }}>
-                <Typography sx={{ 
-                  fontSize: '0.9rem',
-                  color: '#111',
-                  fontWeight: 600,
-                  fontFamily: 'monospace'
-                }}>
-                  {formatAddress(walletData.address)}
-                </Typography>
-                <Typography sx={{ 
-                  fontSize: '0.8rem',
-                  color: walletData.isValidNetwork ? '#4CAF50' : '#f44336',
-                  fontWeight: 500
-                }}>
-                  {walletData.networkName}
-                </Typography>
-                <Typography sx={{ 
-                  fontSize: '0.8rem',
-                  color: '#666',
-                  fontFamily: 'monospace'
-                }}>
-                  {walletData.walletBalance} ETH
-                </Typography>
-                <Button
-                  onClick={handleDisconnect}
-                  variant="contained"
-                  size="small"
-                  sx={{ 
-                    mt: 1,
-                    backgroundColor: '#F50DB4',
-                    color: 'white',
-                    fontSize: '0.8rem',
-                    textTransform: 'none',
-                    fontWeight: 500,
-                    '&:hover': {
-                      backgroundColor: '#d00a9b'
-                    }
-                  }}
-                >
-                  Disconnect
-                </Button>
-              </Box>
-            </Box>
-
-            <Box sx={{ 
-              p: 3,
-              pt: 2,
-              borderTop: '1px solid rgba(245, 13, 180, 0.1)',
+        {/* Update the bottom wallet section to be more compact */}
+        <Box sx={{ mt: 'auto' }}>
+          <Box sx={{ 
+            p: 2,
+            borderTop: '1px solid rgba(245, 13, 180, 0.1)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between'
+          }}>
+            <Box sx={{
               display: 'flex',
               flexDirection: 'column',
-              gap: 2
+              gap: 0.25
             }}>
-              {/* Social Links - Mobile */}
-              <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
-                {/* Discord link temporarily removed
-                <MuiLink
-                  href="https://discord.gg/nrQezVny"
-                  target="_blank"
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    height: 22
-                  }}
-                >
-                  <Box
-                    component="img"
-                    src={discordIcon}
-                    alt="Discord"
-                    sx={{
-                      width: 22,
-                      height: 22,
-                      opacity: 0.8,
-                      transition: 'all 0.2s',
-                      filter: 'invert(36%) sepia(71%) saturate(6010%) hue-rotate(308deg) brightness(97%) contrast(101%)',
-                      '&:hover': {
-                        opacity: 1,
-                        transform: 'scale(1.05)'
-                      }
-                    }}
-                  />
-                </MuiLink>
-                */}
-              </Box>
-
-              {/* Social Links - Desktop */}
-              <Box sx={{ display: { xs: 'none', md: 'flex' }, gap: 2, alignItems: 'center' }}>
-                {/* Discord link temporarily removed
-                <MuiLink
-                  href="https://discord.gg/nrQezVny"
-                  target="_blank"
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    height: 22
-                  }}
-                >
-                  <Box
-                    component="img"
-                    src={discordIcon}
-                    alt="Discord"
-                    sx={{
-                      width: 22,
-                      height: 22,
-                      opacity: 0.8,
-                      transition: 'all 0.2s',
-                      filter: 'invert(36%) sepia(71%) saturate(6010%) hue-rotate(308deg) brightness(97%) contrast(101%)',
-                      '&:hover': {
-                        opacity: 1,
-                        transform: 'scale(1.05)'
-                      }
-                    }}
-                  />
-                </MuiLink>
-                */}
-              </Box>
-
-              {/* Powered by Unichain */}
-              <Box sx={{ 
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1.5,
-                opacity: 0.7
+              <Typography sx={{ 
+                fontSize: '0.75rem',
+                color: '#111',
+                fontWeight: 600,
+                fontFamily: 'monospace'
               }}>
-                <Typography sx={{ 
-                  fontSize: '0.85rem',
-                  color: '#666',
-                  fontWeight: 500
-                }}>
-                  Powered by
-                </Typography>
-                <Box
-                  component="img"
-                  src="./Unichain-Lockup-Dark.png"
-                  sx={{
-                    height: '16px',
-                    width: 'auto'
-                  }}
-                  alt="Unichain"
-                />
-              </Box>
-            </Box>
-          </Box>
-        ) : (
-          <Box sx={{ mt: 'auto' }}>
-            <Box sx={{ 
-              p: 3,
-              pt: 2,
-              borderTop: '1px solid rgba(245, 13, 180, 0.1)',
-            }}>
-              <Button
-                variant="contained"
-                onClick={handleConnect}
-                disabled={isConnecting}
-                fullWidth
-                sx={{ 
-                  py: 1.5,
-                  fontSize: '0.875rem',
-                  backgroundColor: '#F50DB4',
-                  textTransform: 'none',
-                  fontWeight: 500,
-                  '&:hover': {
-                    backgroundColor: '#d00a9b',
-                  }
-                }}
-              >
-                {isConnecting ? 'Connecting...' : 'Connect Wallet'}
-              </Button>
-            </Box>
-
-            <Box sx={{ 
-              p: 3,
-              pt: 2,
-              borderTop: '1px solid rgba(245, 13, 180, 0.1)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 2
-            }}>
-              {/* Social Links - Mobile */}
-              <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
-                {/* Discord link temporarily removed
-                <MuiLink
-                  href="https://discord.gg/nrQezVny"
-                  target="_blank"
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    height: 22
-                  }}
-                >
-                  <Box
-                    component="img"
-                    src={discordIcon}
-                    alt="Discord"
-                    sx={{
-                      width: 22,
-                      height: 22,
-                      opacity: 0.8,
-                      transition: 'all 0.2s',
-                      filter: 'invert(36%) sepia(71%) saturate(6010%) hue-rotate(308deg) brightness(97%) contrast(101%)',
-                      '&:hover': {
-                        opacity: 1,
-                        transform: 'scale(1.05)'
-                      }
-                    }}
-                  />
-                </MuiLink>
-                */}
-              </Box>
-
-              {/* Social Links - Desktop */}
-              <Box sx={{ display: { xs: 'none', md: 'flex' }, gap: 2, alignItems: 'center' }}>
-                {/* Discord link temporarily removed
-                <MuiLink
-                  href="https://discord.gg/nrQezVny"
-                  target="_blank"
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    height: 22
-                  }}
-                >
-                  <Box
-                    component="img"
-                    src={discordIcon}
-                    alt="Discord"
-                    sx={{
-                      width: 22,
-                      height: 22,
-                      opacity: 0.8,
-                      transition: 'all 0.2s',
-                      filter: 'invert(36%) sepia(71%) saturate(6010%) hue-rotate(308deg) brightness(97%) contrast(101%)',
-                      '&:hover': {
-                        opacity: 1,
-                        transform: 'scale(1.05)'
-                      }
-                    }}
-                  />
-                </MuiLink>
-                */}
-              </Box>
-
-              {/* Powered by Unichain */}
-              <Box sx={{ 
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1.5,
-                opacity: 0.7
+                {walletData.address ? formatAddress(walletData.address) : ''}
+              </Typography>
+              <Typography sx={{ 
+                fontSize: '0.7rem',
+                color: walletData.isValidNetwork ? '#4CAF50' : '#f44336',
+                fontWeight: 500
               }}>
-                <Typography sx={{ 
-                  fontSize: '0.85rem',
-                  color: '#666',
-                  fontWeight: 500
-                }}>
-                  Powered by
-                </Typography>
-                <Box
-                  component="img"
-                  src="./Unichain-Lockup-Dark.png"
-                  sx={{
-                    height: '16px',
-                    width: 'auto'
-                  }}
-                  alt="Unichain"
-                />
-              </Box>
+                {walletData.networkName}
+              </Typography>
+              <Typography sx={{ 
+                fontSize: '0.7rem',
+                color: '#666',
+                fontFamily: 'monospace'
+              }}>
+                {walletData.walletBalance || '0.00'} ETH
+              </Typography>
             </Box>
+            <Button
+              onClick={walletData.address ? handleDisconnect : handleConnect}
+              variant="contained"
+              size="small"
+              sx={{ 
+                backgroundColor: '#F50DB4',
+                color: 'white',
+                fontSize: '0.75rem',
+                textTransform: 'none',
+                fontWeight: 500,
+                py: 0.75,
+                px: 2,
+                minWidth: 'auto',
+                '&:hover': {
+                  backgroundColor: '#d00a9b'
+                }
+              }}
+            >
+              {isConnecting ? 'Connecting...' : walletData.address ? 'Disconnect' : 'Connect'}
+            </Button>
           </Box>
-        )}
+        </Box>
       </Drawer>
     </>
   );

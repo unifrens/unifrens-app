@@ -186,14 +186,29 @@ function App() {
         {/* Header Section with SVG Pattern */}
         <Box sx={{ 
           position: 'relative',
-          height: { xs: 104, sm: 184 },
+          height: { xs: 104, sm: 144 },
           backgroundColor: '#F50DB4',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           mt: 0,
-          mb: { xs: 1.875, sm: 1.875 },
-          overflow: 'hidden'
+          mb: { xs: 1.875, sm: 1 },
+          overflow: 'hidden',
+          '&::after': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'linear-gradient(180deg, rgba(245, 13, 180, 0.1) 0%, rgba(245, 13, 180, 0) 100%)',
+            opacity: 0.5,
+            transition: 'opacity 0.3s ease-in-out'
+          },
+          '@keyframes subtleFloat': {
+            '0%, 100%': { transform: 'translateY(0)' },
+            '50%': { transform: 'translateY(-4px)' }
+          }
         }}>
           <BackgroundPattern opacity={0.2} />
           
@@ -202,9 +217,16 @@ function App() {
             src={logo}
             alt="Unifrens"
             sx={{ 
-              height: { xs: 48, sm: 64 },
+              height: { xs: 48, sm: 56 },
               position: 'relative',
-              zIndex: 1
+              zIndex: 1,
+              animation: 'subtleFloat 3s ease-in-out infinite',
+              filter: 'drop-shadow(0 4px 12px rgba(245, 13, 180, 0.2))',
+              transition: 'all 0.3s ease-in-out',
+              '&:hover': {
+                filter: 'drop-shadow(0 6px 16px rgba(245, 13, 180, 0.3))',
+                transform: 'scale(1.02)'
+              }
             }}
           />
         </Box>
@@ -214,22 +236,53 @@ function App() {
           maxWidth: 800, 
           mx: 'auto', 
           px: { xs: 2, sm: 3 }, 
-          py: { xs: 3, sm: 4 }, 
-          textAlign: 'center' 
+          py: { xs: 3, sm: 2 },
+          textAlign: 'center',
+          '@keyframes fadeSlideUp': {
+            from: { 
+              opacity: 0,
+              transform: 'translateY(10px)'
+            },
+            to: { 
+              opacity: 1,
+              transform: 'translateY(0)'
+            }
+          },
+          '& > *': {
+            animation: 'fadeSlideUp 0.5s ease-out forwards'
+          }
         }}>
           {/* Title & Description */}
           <Typography variant="h1" sx={{ 
-            fontSize: { xs: 32, sm: 48 }, 
+            fontSize: { xs: 32, sm: 42 }, 
             fontWeight: 900, 
-            mb: { xs: 1, sm: 1.5 },
+            mb: { xs: 1, sm: 1 },
             lineHeight: 1.1,
-            letterSpacing: '-0.02em'
+            letterSpacing: '-0.02em',
+            '& span': {
+              position: 'relative',
+              color: '#F50DB4',
+              '&::after': {
+                content: '""',
+                position: 'absolute',
+                bottom: -2,
+                left: 0,
+                width: '100%',
+                height: '2px',
+                background: '#F50DB4',
+                opacity: 0.2,
+                transition: 'opacity 0.2s ease-in-out'
+              },
+              '&:hover::after': {
+                opacity: 0.4
+              }
+            }
           }}>
-            Meet Your <span style={{ color: '#F50DB4' }}>Unifren</span>
+            Meet Your <span>Unifren</span>
           </Typography>
           <Typography sx={{ 
             color: '#666', 
-            mb: { xs: 3, sm: 4 },
+            mb: { xs: 3, sm: 2.5 },
             fontSize: { xs: '0.9rem', sm: '1rem' },
             maxWidth: '540px',
             mx: 'auto',
@@ -243,29 +296,51 @@ function App() {
             display: 'flex', 
             gap: { xs: 1.5, sm: 2 }, 
             justifyContent: 'center', 
-            mb: { xs: 3, sm: 4 },
+            mb: { xs: 3, sm: 2.5 },
             flexWrap: 'nowrap',
-            maxWidth: '460px',
-            mx: 'auto'
+            width: '100%',
+            maxWidth: { xs: '100%', sm: '460px' },
+            mx: 'auto',
+            '@keyframes cardEntrance': {
+              from: { 
+                opacity: 0,
+                transform: 'translateY(20px) scale(0.95)'
+              },
+              to: { 
+                opacity: 1,
+                transform: 'translateY(0) scale(1)'
+              }
+            }
           }}>
             {FRENS.map((fren, index) => (
               <Box
                 key={fren.name}
                 sx={{ 
-                  width: { xs: 100, sm: 130 },
+                  flex: 1,
+                  minWidth: 0,
+                  maxWidth: '33%',
                   bgcolor: 'white',
                   borderRadius: 2,
                   boxShadow: '0 4px 16px rgba(245, 13, 180, 0.08)',
                   border: '1px solid rgba(245, 13, 180, 0.1)',
                   overflow: 'hidden',
-                  transition: 'all 0.2s ease-in-out',
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  animation: `cardEntrance 0.5s ease-out forwards ${index * 0.1 + 0.2}s`,
+                  opacity: 0,
                   '&:hover': {
-                    transform: 'translateY(-2px)',
-                    boxShadow: '0 6px 20px rgba(245, 13, 180, 0.12)'
+                    transform: 'translateY(-4px) scale(1.02)',
+                    boxShadow: '0 8px 24px rgba(245, 13, 180, 0.16)'
                   }
                 }}
               >
-                <Box sx={{ aspectRatio: '1', display: 'flex' }}>
+                <Box sx={{ 
+                  aspectRatio: '1', 
+                  display: 'flex',
+                  transition: 'transform 0.3s ease-in-out',
+                  '&:hover': {
+                    transform: 'scale(1.05)'
+                  }
+                }}>
                   <AvatarGenerator 
                     size="100%" 
                     name={fren.seed}
@@ -275,25 +350,37 @@ function App() {
                   />
                 </Box>
                 <Box sx={{ 
-                  p: { xs: 1.25, sm: 1.5 }, 
+                  p: { xs: 1, sm: 1.25 },
                   borderTop: '1px solid rgba(245, 13, 180, 0.1)',
-                  background: 'linear-gradient(to bottom, rgba(255,255,255,0.8), rgba(255,255,255,1))'
+                  background: 'linear-gradient(to bottom, rgba(255,255,255,0.8), rgba(255,255,255,1))',
+                  transform: 'translateY(0)',
+                  transition: 'transform 0.3s ease-in-out',
+                  '&:hover': {
+                    transform: 'translateY(-2px)'
+                  }
                 }}>
                   <Typography sx={{ 
-                    fontSize: { xs: '0.8rem', sm: '0.9rem' },
+                    fontSize: { xs: '0.75rem', sm: '0.85rem' },
                     fontWeight: 700,
                     color: '#111',
                     mb: 0.25,
-                    fontFamily: 'Space Grotesk'
+                    fontFamily: 'Space Grotesk',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis'
                   }}>
                     {fren.name}
                   </Typography>
                   <Typography sx={{ 
                     color: '#4CAF50',
-                    fontSize: { xs: '0.7rem', sm: '0.8rem' },
+                    fontSize: { xs: '0.65rem', sm: '0.75rem' },
                     fontFamily: 'Space Grotesk',
                     fontWeight: 600,
-                    letterSpacing: '0.02em'
+                    letterSpacing: '0.02em',
+                    transition: 'transform 0.2s ease-in-out',
+                    '&:hover': {
+                      transform: 'scale(1.05)'
+                    }
                   }}>
                     +{values[index].toFixed(8)}
                   </Typography>
@@ -303,7 +390,7 @@ function App() {
           </Box>
 
           {/* CTA */}
-          <Box sx={{ mb: { xs: 3, sm: 4 } }}>
+          <Box sx={{ mb: { xs: 3, sm: 2.5 } }}>
             <Button
               component={Link}
               to="/frens"
@@ -315,19 +402,21 @@ function App() {
                 borderRadius: 50,
                 fontSize: { xs: 16, sm: 18 },
                 fontWeight: 600,
-                '&:hover': { bgcolor: '#d00a9b' }
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                transform: 'translateY(0)',
+                '&:hover': { 
+                  bgcolor: '#d00a9b',
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 4px 16px rgba(245, 13, 180, 0.25)'
+                },
+                '&:active': {
+                  transform: 'translateY(0)',
+                  boxShadow: '0 2px 8px rgba(245, 13, 180, 0.25)'
+                }
               }}
             >
               Launch App
             </Button>
-            <Typography sx={{ 
-              color: '#666', 
-              mt: 1.5, 
-              fontStyle: 'italic',
-              fontSize: { xs: '0.8rem', sm: '0.875rem' }
-            }}>
-              Currently testing on Unichain Sepolia Testnet
-            </Typography>
           </Box>
 
           {/* Footer */}
