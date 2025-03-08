@@ -3,7 +3,7 @@
 import { defineChain } from 'viem';
 
 // Define Unichain networks
-const unichainMainnet = {
+export const unichainMainnet = defineChain({
   id: 130,
   name: 'Unichain',
   network: 'unichain',
@@ -18,10 +18,15 @@ const unichainMainnet = {
   },
   blockExplorers: {
     default: { name: 'UnichainScan', url: 'https://uniscan.xyz' },
+  },
+  contracts: {
+    multicall3: {
+      address: '0xcA11bde05977b3631167028862bE2a173976CA11',
+    }
   }
-}
+});
 
-const unichainSepolia = defineChain({
+export const unichainSepolia = defineChain({
   id: 1301,
   name: 'Unichain Sepolia',
   network: 'unichain-sepolia',
@@ -50,5 +55,3 @@ const unichainSepolia = defineChain({
     }
   }
 });
-
-export { unichainMainnet, unichainSepolia };

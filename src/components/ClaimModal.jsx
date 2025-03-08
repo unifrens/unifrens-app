@@ -3,7 +3,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { useState, useEffect } from 'react';
 import { formatEther, createWalletClient, custom, createPublicClient, http } from 'viem';
-import { unichainSepolia } from '../wallet';
+import { unichainMainnet } from '../wallet';
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from '../contract';
 import AvatarGenerator from './AvatarGenerator';
 
@@ -99,7 +99,7 @@ const ClaimOption = ({ title, description, amount, onClick, disabled, warning, d
         color: '#666',
         mb: 0.5
       }}>
-        Earned Rewards
+        Collected Dust
       </Typography>
       <Typography sx={{ 
         fontSize: '1rem',
@@ -122,7 +122,7 @@ const ClaimOption = ({ title, description, amount, onClick, disabled, warning, d
             color: '#4CAF50',
             mb: 0.25
           }}>
-            {customLabels.receive || "You'll Receive"}
+            {customLabels.receive || "You'll Collect"}
           </Typography>
           <Typography sx={{ 
             fontSize: '0.95rem',
@@ -305,8 +305,8 @@ const ClaimModal = ({ open, onClose, token, onSuccess, contractBalance }) => {
   const CONTRACT_ERRORS = {
     NOT_OWNER: "UNIFRENS: Not the owner",
     MAX_WEIGHT: "UNIFRENS: Max weight reached",
-    NO_REWARDS: "UNIFRENS: No rewards available",
-    MIN_REWARDS: "UNIFRENS: Insufficient rewards for redistribution",
+    NO_REWARDS: "UNIFRENS: No dust available",
+    MIN_REWARDS: "UNIFRENS: Insufficient dust for redistribution",
     INSUFFICIENT_BALANCE: "UNIFRENS: Insufficient contract balance",
     POSITION_INACTIVE: "UNIFRENS: Position is inactive",
     POSITION_ALREADY_INACTIVE: "UNIFRENS: Position already inactive",
@@ -318,12 +318,12 @@ const ClaimModal = ({ open, onClose, token, onSuccess, contractBalance }) => {
   const ERROR_MESSAGES = {
     [CONTRACT_ERRORS.NOT_OWNER]: "You don't own this Fren",
     [CONTRACT_ERRORS.MAX_WEIGHT]: "This Fren has reached maximum weight (1000×). Try a different claim option.",
-    [CONTRACT_ERRORS.NO_REWARDS]: "No rewards available to claim. Please wait for rewards to accumulate.",
-    [CONTRACT_ERRORS.MIN_REWARDS]: "Need at least 0.0009 ETH in rewards to redistribute. Try the 'Stay & Play' option instead.",
+    [CONTRACT_ERRORS.NO_REWARDS]: "No dust available to collect. Please wait for dust to accumulate.",
+    [CONTRACT_ERRORS.MIN_REWARDS]: "Need at least 0.00001 ETH in dust to redistribute. Try the 'Stay & Play' option instead.",
     [CONTRACT_ERRORS.INSUFFICIENT_BALANCE]: "Contract balance is too low. Please try again later.",
-    [CONTRACT_ERRORS.POSITION_INACTIVE]: "This Fren is inactive and cannot claim rewards.",
+    [CONTRACT_ERRORS.POSITION_INACTIVE]: "This Fren is inactive and cannot collect dust.",
     [CONTRACT_ERRORS.POSITION_ALREADY_INACTIVE]: "This Fren is already inactive.",
-    [CONTRACT_ERRORS.WITHDRAWAL_TOO_SMALL]: "Withdrawal amount is too small. Accumulate more rewards first.",
+    [CONTRACT_ERRORS.WITHDRAWAL_TOO_SMALL]: "Withdrawal amount is too small. Accumulate more dust first.",
     [CONTRACT_ERRORS.NOT_LAST_ACTIVE]: "There are still other active Frens. Victory can only be claimed when you have the last active Fren."
   };
 
@@ -352,13 +352,13 @@ const ClaimModal = ({ open, onClose, token, onSuccess, contractBalance }) => {
 
       const walletClient = createWalletClient({
         account,
-        chain: unichainSepolia,
+        chain: unichainMainnet,
         transport: custom(window.ethereum)
       });
 
       // Create clients
       const publicClient = createPublicClient({
-        chain: unichainSepolia,
+        chain: unichainMainnet,
         transport: http()
       });
 
@@ -383,35 +383,6 @@ const ClaimModal = ({ open, onClose, token, onSuccess, contractBalance }) => {
           break;
         default:
           throw new Error('Invalid claim type');
-      }
-
-      // Simulate the transaction first to get potential revert reasons
-      try {
-        setTxStatus('Simulating transaction...');
-        const { request } = await publicClient.simulateContract({
-          address: CONTRACT_ADDRESS,
-          abi: CONTRACT_ABI,
-          functionName,
-          args: [token.id],
-          account
-        });
-
-        console.log('Simulation successful:', request);
-      } catch (error) {
-        console.error('Simulation failed:', error);
-        
-        // Extract error message
-        const errorMessage = error.message || '';
-        
-        // Check for known contract errors first
-        for (const [key, contractError] of Object.entries(CONTRACT_ERRORS)) {
-          if (errorMessage.includes(contractError)) {
-            throw new Error(ERROR_MESSAGES[contractError]);
-          }
-        }
-        
-        // If we can't determine specific error, throw simulation error
-        throw new Error(`Transaction would fail: ${errorMessage}`);
       }
 
       setTxStatus(`Initiating ${actionName}...`);
@@ -454,16 +425,16 @@ const ClaimModal = ({ open, onClose, token, onSuccess, contractBalance }) => {
         errorCode: error.code,
         token: {
           id: token.id,
-          rewards: token.rewards ? formatEther(token.rewards) : '0',
+          dust: token.rewards ? formatEther(token.rewards) : '0',
           weight: token.weight
         }
       });
       
-      let errorMessage = 'Failed to process claim';
+      let errorMessage = 'Something went wrong with your transaction. Please try again.';
       
       // Check for known contract errors first
       for (const [key, contractError] of Object.entries(CONTRACT_ERRORS)) {
-        if (error.message.includes(contractError)) {
+        if (error.message?.toLowerCase().includes(contractError.toLowerCase())) {
           errorMessage = ERROR_MESSAGES[contractError];
           setRetryCount(0);
           setError(errorMessage);
@@ -471,20 +442,16 @@ const ClaimModal = ({ open, onClose, token, onSuccess, contractBalance }) => {
         }
       }
       
-      // Handle other common errors
-      if (error.message.toLowerCase().includes('user rejected')) {
-        errorMessage = 'Transaction was rejected in your wallet';
-      } else if (error.message.toLowerCase().includes('insufficient funds')) {
-        errorMessage = 'Insufficient funds for gas fees';
-      } else if (error.message.toLowerCase().includes('please wait')) {
-        errorMessage = error.message;
-      } else if (error.message.toLowerCase().includes('timeout')) {
-        errorMessage = 'Transaction is taking longer than expected. Please check your wallet or explorer.';
+      // Handle other common errors with user-friendly messages
+      if (error.message?.toLowerCase().includes('user rejected')) {
+        errorMessage = 'Transaction cancelled';
+      } else if (error.message?.toLowerCase().includes('insufficient funds')) {
+        errorMessage = 'Not enough ETH to cover gas fees';
+      } else if (error.message?.toLowerCase().includes('please wait')) {
+        errorMessage = 'Please wait a moment before trying again';
+      } else if (error.message?.toLowerCase().includes('timeout')) {
+        errorMessage = 'Transaction is taking longer than expected. Please check your wallet.';
         setRetryCount(prev => prev + 1);
-      } else {
-        console.warn('Unhandled error type:', error);
-        errorMessage = `Transaction failed: ${error.message || 'Unknown error'}`;
-        setRetryCount(0);
       }
       
       setError(errorMessage);
@@ -648,39 +615,41 @@ const ClaimModal = ({ open, onClose, token, onSuccess, contractBalance }) => {
             }}>
               <ClaimOption
                 title="Stay & Play"
-                description="Keep your Fren in the game while taking some profits. You'll get 25% of your rewards, while the rest goes back to the community pot—keeping the game exciting for everyone!"
-                details="Perfect for players who want to stay in the game while taking some profits. The 75% that goes back helps maintain a healthy reward pool for all players."
+                description="Collect your dust while keeping your Fren active. This is the most common choice for long-term players."
+                details="Perfect for players who want to stay in the game while collecting some dust. The 75% that goes back helps maintain a healthy dust pool for all players."
                 amount={token.rewards}
                 effectAmount={25}
                 redistributeAmount={75}
                 onClick={() => handleClaim('soft')}
-                disabled={claiming && selectedOption !== 'soft'}
+                disabled={claiming}
               />
-
               <ClaimOption
-                title="Strategic Power-Up"
-                description={`Convert 75% of your rewards (${formatEther(token.rewards * BigInt(75) / BigInt(100)).slice(0, 8)} ETH) into increased weight. The remaining 25% stays in your rewards balance. No ETH is withdrawn! Your weight will increase based on the amount converted (max weight: 1000).`}
-                details="A strategic move that converts most of your rewards into increased earning potential. No ETH is withdrawn - instead, your rewards are converted to weight, which determines how quickly your Fren earns future rewards. The weight increase gets progressively harder the higher your weight is."
-                amount={token.rewards}
-                effectAmount={25}
-                redistributeAmount={75}
-                onClick={() => handleClaim('redistribute')}
-                disabled={claiming && selectedOption !== 'redistribute'}
-                customLabels={{ receive: "You'll Retain" }}
-              />
-
-              <ClaimOption
-                title="Cash Out"
-                description={`Withdraw 75% of your rewards (${formatEther(token.rewards * BigInt(75) / BigInt(100)).slice(0, 8)} ETH) and retire your Fren. The remaining 25% is redistributed to the community. This Fren will stop earning rewards.`}
-                warning="Game over! Your Fren's weight will be set to 0 and can't be reactivated."
-                details="The nuclear option. You'll get 75% of your current rewards, but this Fren will permanently stop earning. The remaining 25% goes back to the community. Only choose this if you're sure you want to exit the game."
+                title="All or Nothing"
+                description="Go big and retire your Fren! Collect most of your dust at once, with a small portion going to the community."
+                details="A bold move that lets you collect the majority of your accumulated dust, but your Fren will no longer earn more. The remaining dust helps sustain the community. Choose this when you're ready to retire this Fren."
                 amount={token.rewards}
                 effectAmount={75}
                 redistributeAmount={25}
                 onClick={() => handleClaim('hard')}
-                disabled={claiming && selectedOption !== 'hard'}
+                disabled={claiming}
+                customLabels={{
+                  receive: "You Collect ~"
+                }}
               />
-
+              <ClaimOption
+                title="Community Spirit"
+                description="Boost your Fren's weight and earning potential! By redistributing dust, you'll increase your collection rate and earn airdrop points."
+                details="A strategic choice that maximizes your Fren's growth. Most of your dust goes to the community pool, significantly boosting your weight and future dust collection rate. Plus, community contributions may be factored into future token distributions. Your Fren stays active and keeps collecting."
+                amount={token.rewards}
+                effectAmount={25}
+                redistributeAmount={75}
+                onClick={() => handleClaim('redistribute')}
+                disabled={claiming || BigInt(token.rewards || 0) < BigInt(10000000000000)}
+                warning={BigInt(token.rewards || 0) < BigInt(10000000000000) ? "Need at least 0.00001 ETH in dust to redistribute" : undefined}
+                customLabels={{
+                  receive: "You Keep ~"
+                }}
+              />
               <VictoryClaimOption
                 title="Claim Victory 🏆"
                 description="If you're the last active Fren standing (all other Frens have weight 0), you can claim the entire contract balance as the ultimate winner!"
