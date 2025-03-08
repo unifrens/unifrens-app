@@ -8,6 +8,7 @@ import MaintenanceMode from './MaintenanceMode';
 import xIcon from '../assets/11053970_x_logo_twitter_new_brand_icon.svg';
 import githubIcon from '../assets/github-142-svgrepo-com.svg';
 import gitbookIcon from '../assets/gitbook-svgrepo-com.svg';
+import { unichainMainnet } from '../wallet';
 
 const NetworkDetails = ({ title, chainId, chainName, rpcUrl, symbol, explorer, isHighlighted }) => (
   <Box sx={{
@@ -135,6 +136,65 @@ const NetworkDetails = ({ title, chainId, chainName, rpcUrl, symbol, explorer, i
 const ConnectPage = ({ error }) => {
   const isWrongNetwork = error?.includes('network');
   
+  const handleConnect = async () => {
+    if (typeof window.ethereum !== 'undefined') {
+      try {
+        // Request account access
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        
+        // Check if connected to the correct network
+        const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+        const validChainId = `0x${unichainMainnet.id.toString(16)}`;
+        
+        if (chainId !== validChainId) {
+          try {
+            await window.ethereum.request({
+              method: 'wallet_switchEthereumChain',
+              params: [{ chainId: validChainId }],
+            });
+          } catch (switchError) {
+            // This error code indicates that the chain has not been added to MetaMask
+            if (switchError.code === 4902) {
+              try {
+                await window.ethereum.request({
+                  method: 'wallet_addEthereumChain',
+                  params: [
+                    {
+                      chainId: validChainId,
+                      chainName: unichainMainnet.name,
+                      nativeCurrency: unichainMainnet.nativeCurrency,
+                      rpcUrls: [unichainMainnet.rpcUrls.default.http[0]],
+                      blockExplorerUrls: [unichainMainnet.blockExplorers.default.url],
+                    },
+                  ],
+                });
+              } catch (addError) {
+                console.error('Error adding network:', addError);
+                setError('Failed to add network to MetaMask');
+                return;
+              }
+            } else {
+              console.error('Error switching network:', switchError);
+              setError('Failed to switch network');
+              return;
+            }
+          }
+        }
+
+        if (accounts[0]) {
+          setConnected(true);
+          setAddress(accounts[0]);
+          setError('');
+        }
+      } catch (error) {
+        console.error('Error connecting wallet:', error);
+        setError('Failed to connect wallet');
+      }
+    } else {
+      setError('Please install MetaMask');
+    }
+  };
+
   return (
     <Box sx={{
       minHeight: '100vh',
@@ -222,7 +282,7 @@ const ConnectPage = ({ error }) => {
                   lineHeight: 1.6
                 }}>
                   {isWrongNetwork ? (
-                    "Looks like you're not connected to Unichain Sepolia. Switch networks to see your Frens!"
+                    "Looks like you're not connected to Unichain Mainnet. Switch networks to see your Frens!"
                   ) : (
                     "Connect your wallet to see your Frens and start earning rewards."
                   )}
@@ -269,7 +329,7 @@ const ConnectPage = ({ error }) => {
                       Network Name
                     </Typography>
                     <Typography sx={{ fontWeight: 500 }}>
-                      Unichain Sepolia
+                      Unichain Mainnet
                     </Typography>
                   </Box>
                   
@@ -278,7 +338,7 @@ const ConnectPage = ({ error }) => {
                       Chain ID
                     </Typography>
                     <Typography sx={{ fontWeight: 500, fontFamily: 'monospace' }}>
-                      1301
+                      130
                     </Typography>
                   </Box>
                   
@@ -291,7 +351,7 @@ const ConnectPage = ({ error }) => {
                       wordBreak: 'break-all',
                       fontFamily: 'monospace'
                     }}>
-                      https://sepolia.unichain.org
+                      https://mainnet.unichain.org
                     </Typography>
                   </Box>
                   
@@ -310,7 +370,7 @@ const ConnectPage = ({ error }) => {
                     </Typography>
                     <Typography 
                       component="a"
-                      href="https://sepolia.uniscan.xyz"
+                      href="https://uniscan.xyz"
                       target="_blank"
                       rel="noopener noreferrer"
                       sx={{ 
@@ -319,7 +379,7 @@ const ConnectPage = ({ error }) => {
                         '&:hover': { textDecoration: 'underline' }
                       }}
                     >
-                      sepolia.uniscan.xyz
+                      uniscan.xyz
                     </Typography>
                   </Box>
                 </Box>

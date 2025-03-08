@@ -10,6 +10,7 @@ import PlayPage from './components/PlayPage'
 import FaucetPage from './components/FaucetPage'
 import ProfileSettingsPage from './components/ProfileSettingsPage'
 import UtilitiesPage from './pages/UtilitiesPage'
+import TokenDeployerPage from './pages/TokenDeployerPage'
 import './styles.css'
 import './wallet'
 import { initAnalytics } from './firebase'
@@ -24,7 +25,8 @@ const router = createBrowserRouter([
   { path: '/play', element: <PlayPage /> },
   { path: '/faucet', element: <FaucetPage /> },
   { path: '/profile', element: <ProfileSettingsPage /> },
-  { path: '/utilities', element: <UtilitiesPage /> }
+  { path: '/utilities', element: <UtilitiesPage /> },
+  { path: '/utilities/token-deployer', element: <TokenDeployerPage /> }
 ])
 
 // Error handling for production

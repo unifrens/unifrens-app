@@ -2,7 +2,7 @@ import { Box, Typography, Card, CardContent, Stack, Chip, CircularProgress, Butt
 import { useState, useEffect, useCallback } from 'react';
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from '../contract';
 import { createPublicClient, http, createWalletClient, custom, formatEther, encodeFunctionData } from 'viem';
-import { unichainSepolia } from '../wallet';
+import { unichainMainnet } from '../wallet';
 import AvatarGenerator from './AvatarGenerator';
 import { Link } from 'react-router-dom';
 import Navbar from './Navbar';
@@ -14,15 +14,13 @@ import frenTokenImage from '../assets/fren-token.png';
 import { APP_CONFIG } from '../config';
 import MaintenanceMode from './MaintenanceMode';
 import { buttonStyles, cardStyles, containerStyles } from '../styles/theme';
-import LeaderboardAnnouncement from './common/announcements/LeaderboardAnnouncement';
-import AirdropAnnouncement from './common/announcements/AirdropAnnouncement';
-import DiscordWarningAnnouncement from './common/announcements/DiscordWarningAnnouncement';
+import MainnetAnnouncement from './common/announcements/MainnetAnnouncement';
 import FrenViewModal from './FrenViewModal';
 import { preloadNFTImage, getCachedNFTImage } from '../utils/imageCache';
 import { useRewards } from '../context/RewardsContext';
 
 const publicClient = createPublicClient({
-  chain: unichainSepolia,
+  chain: unichainMainnet,
   transport: http(),
 });
 
@@ -182,7 +180,7 @@ const FrensPage = () => {
   });
   const [refreshCooldown, setRefreshCooldown] = useState(false);
   const [viewToken, setViewToken] = useState(null);
-  const { setTotalPendingRewards } = useRewards();
+  const { setTotalPendingRewards, setUserFrens } = useRewards();
 
   const formatAddress = (address) => {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -250,6 +248,7 @@ const FrensPage = () => {
   const fetchUserNFTs = useCallback(async (skipCache = false) => {
     if (!walletData.isConnected || !walletData.address) {
       setNfts([]);
+      setUserFrens([]); // Clear userFrens when disconnected
       setLoading(false);
       setInitialLoad(false);
       return;
@@ -266,6 +265,7 @@ const FrensPage = () => {
           return Number(a.id - b.id);
         });
         setNfts(sortedNfts);
+        setUserFrens(sortedNfts); // Update userFrens with cached data
         setLoading(false);
         setInitialLoad(false);
       }
@@ -291,6 +291,7 @@ const FrensPage = () => {
 
       if (balance === 0n) {
         setNfts([]);
+        setUserFrens([]); // Clear userFrens when balance is zero
         setLoading(false);
         setInitialLoad(false);
         return;
@@ -347,6 +348,7 @@ const FrensPage = () => {
       });
 
       setNfts(sortedTokens);
+      setUserFrens(sortedTokens); // Update userFrens with fresh data
       if (sortedTokens.length > 0) {
         setCachedData(sortedTokens);
       }
@@ -360,7 +362,7 @@ const FrensPage = () => {
       setLoading(false);
       setInitialLoad(false);
     }
-  }, [walletData.address, walletData.isConnected]);
+  }, [walletData.address, walletData.isConnected, setUserFrens]);
 
   useEffect(() => {
     const checkWalletStatus = async () => {
@@ -369,7 +371,7 @@ const FrensPage = () => {
       try {
         const accounts = await window.ethereum.request({ method: 'eth_accounts' });
         const chainId = await window.ethereum.request({ method: 'eth_chainId' });
-        const validChainId = `0x${unichainSepolia.id.toString(16)}`;
+        const validChainId = `0x${unichainMainnet.id.toString(16)}`;
         
         const isValidNetwork = chainId === validChainId;
         const newAddress = accounts[0] || '';
@@ -567,22 +569,18 @@ const FrensPage = () => {
   // Add contract health fetching function
   const fetchContractHealth = useCallback(async () => {
     try {
-      const health = await requestQueue.add(() => 
-        publicClient.readContract({
-          address: CONTRACT_ADDRESS,
-          abi: CONTRACT_ABI,
-          functionName: 'getContractHealth'
-        })
-      );
+      const balance = await publicClient.getBalance({
+        address: CONTRACT_ADDRESS
+      });
 
       setContractHealth({
-        contractBalance: health[0],
-        pendingRewards: health[2],
-        isSolvent: health[4],
+        contractBalance: balance,
+        pendingRewards: BigInt(0), // We don't need this anymore
+        isSolvent: true, // We don't need this anymore
         loading: false
       });
     } catch (error) {
-      console.error('Error fetching contract health:', error);
+      console.error('Error fetching contract balance:', error);
       setContractHealth(prev => ({ ...prev, loading: false }));
     }
   }, []);
@@ -602,11 +600,19 @@ const FrensPage = () => {
       localStorage.removeItem('unifrens_cache');
       // Refresh NFTs with cache bypass
       fetchUserNFTs(true);
+      // Refresh contract health immediately
+      fetchContractHealth();
     };
 
     window.addEventListener('unifrens:mint:success', handleMintSuccess);
     return () => window.removeEventListener('unifrens:mint:success', handleMintSuccess);
-  }, [fetchUserNFTs]);
+  }, [fetchUserNFTs, fetchContractHealth]);
+
+  // Add claim success handler
+  const handleClaimSuccess = useCallback(() => {
+    // Refresh contract health immediately after claim
+    fetchContractHealth();
+  }, [fetchContractHealth]);
 
   if (!walletData.isConnected || !walletData.address) {
     return <ConnectPage />;
@@ -633,22 +639,40 @@ const FrensPage = () => {
           px: { xs: 2, sm: 3 }
         }}
       >
-        {/* Discord Warning Announcement */}
-        <DiscordWarningAnnouncement />
-
-        {/* Leaderboard Announcement */}
-        {SHOW_LEADERBOARD_ANNOUNCEMENT && <LeaderboardAnnouncement />}
-
-        {/* Airdrop Announcement */}
-        {!APP_CONFIG.MAINTENANCE_MODE && (
-          <AirdropAnnouncement
-            estimatedReward={formatNumber(
-              nfts.length * 1_000_000 +
-              Number(formatEther(getTotalPendingRewards())) * 2_000_000 +
-              Number(formatEther(getTotalClaimedRewards())) * 3_000_000
-            )}
-          />
-        )}
+        {/* Welcome Message */}
+        <Alert 
+          severity="info"
+          icon={false}
+          sx={{ 
+            mb: { xs: 3, sm: 4 },
+            borderRadius: '12px',
+            backgroundColor: 'rgba(245, 13, 180, 0.04)',
+            border: '1px solid',
+            borderColor: 'rgba(245, 13, 180, 0.1)',
+            boxShadow: 'none',
+            '& .MuiAlert-message': {
+              width: '100%'
+            }
+          }}
+        >
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 1.5
+          }}>
+            <Typography sx={{ 
+              fontSize: '0.95rem',
+              color: '#111',
+              lineHeight: 1.5,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1
+            }}>
+              <span style={{ fontSize: '1.4rem' }}>🎉</span>
+              Welcome to Unifrens Mainnet! Start collecting dust with your Frens!
+            </Typography>
+          </Box>
+        </Alert>
 
         {/* Only show the rest of the content if not in maintenance mode */}
         {!APP_CONFIG.MAINTENANCE_MODE && (
@@ -744,7 +768,7 @@ const FrensPage = () => {
                       mb: { xs: 0.5, sm: 1 },
                       fontSize: { xs: '0.75rem', sm: '0.875rem' }
                     }}>
-                      Your Earned
+                      Your Dust
                     </Typography>
                     <Typography sx={{ 
                       fontSize: { xs: '1.125rem', sm: '2rem' },
@@ -790,7 +814,7 @@ const FrensPage = () => {
                       mb: { xs: 0.5, sm: 1 },
                       fontSize: { xs: '0.75rem', sm: '0.875rem' }
                     }}>
-                      Your Volume
+                      Your Dust
                     </Typography>
                     <Typography sx={{ 
                       fontSize: { xs: '1.125rem', sm: '2rem' },
@@ -805,7 +829,7 @@ const FrensPage = () => {
                       color: '#666',
                       fontSize: { xs: '0.75rem', sm: '0.875rem' }
                     }}>
-                      ETH Moved
+                      Moved
                     </Typography>
                   </Card>
 
@@ -859,7 +883,7 @@ const FrensPage = () => {
                       ETH Total
                       <IconButton
                         component="a"
-                        href={`https://sepolia.uniscan.xyz/address/${CONTRACT_ADDRESS}`}
+                        href={`https://uniscan.xyz/address/${CONTRACT_ADDRESS}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         size="small"
@@ -1129,7 +1153,10 @@ const FrensPage = () => {
         open={claimModalOpen && !APP_CONFIG.MAINTENANCE_MODE}
         onClose={handleClaimModalClose}
         token={selectedToken}
-        onSuccess={refreshSingleNFT}
+        onSuccess={(tokenId) => {
+          refreshSingleNFT(tokenId);
+          handleClaimSuccess();
+        }}
         contractBalance={contractHealth.contractBalance}
       />
     </Box>

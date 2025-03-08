@@ -10,6 +10,112 @@ import githubIcon from './assets/github-142-svgrepo-com.svg';
 import gitbookIcon from './assets/gitbook-svgrepo-com.svg';
 import logo from './assets/unifrens-logo-v2.png';
 import { useState, useEffect } from 'react';
+import confetti from 'canvas-confetti';
+
+// Add sound synthesis setup
+const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+const playTone = (frequency, duration, type = 'sine', volume = 0.1) => {
+  const oscillator = audioContext.createOscillator();
+  const gainNode = audioContext.createGain();
+  
+  oscillator.type = type;
+  oscillator.frequency.value = frequency;
+  
+  gainNode.gain.value = volume;
+  gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+  
+  oscillator.connect(gainNode);
+  gainNode.connect(audioContext.destination);
+  
+  oscillator.start();
+  oscillator.stop(audioContext.currentTime + duration);
+};
+
+const playWelcomeSound = () => {
+  // Play an ascending arpeggio with harmonies
+  const frequencies = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+  frequencies.forEach((freq, i) => {
+    setTimeout(() => {
+      // Main note
+      playTone(freq, 0.2, 'sine', 0.1);
+      // Harmony note
+      playTone(freq * 1.5, 0.15, 'triangle', 0.05);
+    }, i * 120);
+  });
+  
+  // Final chord
+  setTimeout(() => {
+    playTone(frequencies[0], 0.4, 'sine', 0.08);
+    playTone(frequencies[2], 0.4, 'sine', 0.08);
+    playTone(frequencies[3], 0.4, 'sine', 0.08);
+  }, frequencies.length * 120);
+};
+
+const playCTASound = () => {
+  // Play a quick ascending flourish
+  const frequencies = [523.25, 783.99, 1046.50]; // C5, G5, C6
+  frequencies.forEach((freq, i) => {
+    setTimeout(() => {
+      playTone(freq, 0.15, 'sine', 0.08);
+      // Add sparkle with higher harmonics
+      playTone(freq * 2, 0.1, 'triangle', 0.03);
+    }, i * 60);
+  });
+};
+
+const celebratePageLoad = () => {
+  const colors = ['#F50DB4', '#FEAFF0'];
+  
+  // Left corner burst
+  confetti({
+    particleCount: 15,
+    angle: 60,
+    spread: 40,
+    origin: { x: 0, y: 0.2 },
+    colors: colors,
+    scalar: 0.9,
+    gravity: 0.6,
+    drift: 1
+  });
+  
+  // Right corner burst
+  confetti({
+    particleCount: 15,
+    angle: 120,
+    spread: 40,
+    origin: { x: 1, y: 0.2 },
+    colors: colors,
+    scalar: 0.9,
+    gravity: 0.6,
+    drift: -1
+  });
+  
+  // Bottom corner bursts
+  setTimeout(() => {
+    confetti({
+      particleCount: 10,
+      angle: 135,
+      spread: 30,
+      origin: { x: 0, y: 0.9 },
+      colors: colors,
+      scalar: 0.8,
+      gravity: 0.3,
+      drift: 1
+    });
+    
+    confetti({
+      particleCount: 10,
+      angle: 45,
+      spread: 30,
+      origin: { x: 1, y: 0.9 },
+      colors: colors,
+      scalar: 0.8,
+      gravity: 0.3,
+      drift: -1
+    });
+  }, 300);
+};
 
 // Define the pattern SVG component for reuse
 export const BackgroundPattern = ({ opacity = 0.2 }) => (
@@ -165,19 +271,64 @@ export const BackgroundPattern = ({ opacity = 0.2 }) => (
 );
 
 const FRENS = [
-  { name: "Satoshi", seed: "Satoshi123", baseValue: 0.00001930 },
-  { name: "Degen", seed: "Degen456", baseValue: 0.00001470 },
-  { name: "Bob", seed: "Bob789", baseValue: 0.00001690 }
+  { name: "Satoshi", seed: "Satoshi123" },
+  { name: "Degen", seed: "Degen456" },
+  { name: "Bob", seed: "Bob789" }
 ];
 
 function App() {
   const [values, setValues] = useState(FRENS.map(f => f.baseValue));
+  const [timeLeft, setTimeLeft] = useState({
+    days: 0,
+    hours: 0,
+    minutes: 0,
+    seconds: 0
+  });
+  const [hasPlayedIntro, setHasPlayedIntro] = useState(false);
+
+  // Add page load effect
+  useEffect(() => {
+    if (!hasPlayedIntro) {
+      celebratePageLoad();
+      playWelcomeSound();
+      setHasPlayedIntro(true);
+    }
+  }, [hasPlayedIntro]);
 
   useEffect(() => {
     const interval = setInterval(() => {
       setValues(prev => prev.map(v => v + 0.00000001));
     }, 100);
     return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const calculateTimeLeft = () => {
+      // March 8th, 2025 at 04:00 PST (12:00 UTC)
+      const launchDate = new Date('2025-03-08T12:00:00Z');
+      const now = new Date();
+      const difference = launchDate - now;
+
+      if (difference > 0) {
+        return {
+          days: Math.floor(difference / (1000 * 60 * 60 * 24)),
+          hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
+          minutes: Math.floor((difference / 1000 / 60) % 60),
+          seconds: Math.floor((difference / 1000) % 60)
+        };
+      }
+      return { days: 0, hours: 0, minutes: 0, seconds: 0 };
+    };
+
+    // Initial calculation
+    setTimeLeft(calculateTimeLeft());
+
+    // Update every second
+    const timer = setInterval(() => {
+      setTimeLeft(calculateTimeLeft());
+    }, 1000);
+
+    return () => clearInterval(timer);
   }, []);
 
   return (
@@ -248,273 +399,288 @@ function App() {
               transform: 'translateY(0)'
             }
           },
-          '& > *': {
-            animation: 'fadeSlideUp 0.5s ease-out forwards'
+          '@keyframes pulse': {
+            '0%': { opacity: 0.6 },
+            '50%': { opacity: 1 },
+            '100%': { opacity: 0.6 }
           }
         }}>
-          {/* Title & Description */}
+          {/* Hero Section */}
           <Typography variant="h1" sx={{ 
-            fontSize: { xs: 32, sm: 42 }, 
-            fontWeight: 900, 
-            mb: { xs: 1, sm: 1 },
-            lineHeight: 1.1,
-            letterSpacing: '-0.02em',
-            '& span': {
-              position: 'relative',
-              color: '#F50DB4',
-              '&::after': {
-                content: '""',
-                position: 'absolute',
-                bottom: -2,
-                left: 0,
-                width: '100%',
-                height: '2px',
-                background: '#F50DB4',
-                opacity: 0.2,
-                transition: 'opacity 0.2s ease-in-out'
-              },
-              '&:hover::after': {
-                opacity: 0.4
-              }
-            }
+            fontSize: { xs: '2rem', sm: '2.5rem' },
+            fontWeight: 900,
+            mb: 2,
+            animation: 'fadeSlideUp 0.6s ease-out',
+            background: 'linear-gradient(135deg, #111 0%, #333 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
           }}>
-            Meet Your <span>Unifren</span>
+            Secure Your Web3 Identity
           </Typography>
+          
           <Typography sx={{ 
-            color: '#666', 
-            mb: { xs: 3, sm: 2.5 },
-            fontSize: { xs: '0.9rem', sm: '1rem' },
-            maxWidth: '540px',
+            fontSize: { xs: '1.125rem', sm: '1.25rem' },
+            color: '#666',
+            mb: 4,
+            maxWidth: '600px',
             mx: 'auto',
-            lineHeight: 1.6
+            animation: 'fadeSlideUp 0.6s ease-out 0.1s backwards'
           }}>
-            Every wallet has a hidden companion waiting to be discovered. Name your Unifren and watch them thrive on blockchain activity, collecting valuable dust along the way.
+            Mint your .fren name and join a community built around lasting digital identities.
           </Typography>
 
+          {/* Whitelist CTA */}
+          <Box sx={{
+            mb: 6,
+            animation: 'fadeSlideUp 0.6s ease-out 0.2s backwards',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 2
+          }}>
+            <Alert 
+              severity="info"
+              sx={{ 
+                borderRadius: '12px',
+                backgroundColor: 'rgba(245, 13, 180, 0.04)',
+                border: '1px solid',
+                borderColor: 'rgba(245, 13, 180, 0.1)',
+                boxShadow: 'none',
+                maxWidth: '600px',
+                width: '100%'
+              }}
+            >
+              <Typography sx={{ color: '#111' }}>
+                🎉 Minting is LIVE for whitelisted users! All early users, testnet testers and beta testers have been whitelisted and invited to mint for the next 24 hours.
+              </Typography>
+            </Alert>
+            <Button
+              component={Link}
+              to="/mint"
+              variant="contained"
+              onClick={playCTASound}
+              onMouseEnter={(e) => {
+                const colors = ['#F50DB4', '#FEAFF0'];
+                confetti({
+                  particleCount: 35,
+                  spread: 60,
+                  origin: { y: 0.8 },
+                  colors: colors,
+                  scalar: 1.2,
+                  disableForReducedMotion: true
+                });
+              }}
+              sx={{
+                py: 2,
+                px: { xs: 4, sm: 6 },
+                fontSize: { xs: '1.1rem', sm: '1.25rem' },
+                borderRadius: '12px',
+                textTransform: 'none',
+                fontWeight: 700,
+                backgroundColor: '#F50DB4',
+                boxShadow: '0 8px 24px rgba(245, 13, 180, 0.25)',
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  backgroundColor: '#F50DB4',
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 12px 28px rgba(245, 13, 180, 0.35)'
+                }
+              }}
+            >
+              Mint Your .fren Name
+            </Button>
+          </Box>
+
           {/* Sample Frens */}
-          <Box sx={{ 
-            display: 'flex', 
-            gap: { xs: 1.5, sm: 2 }, 
-            justifyContent: 'center', 
-            mb: { xs: 3, sm: 2.5 },
-            flexWrap: 'nowrap',
-            width: '100%',
-            maxWidth: { xs: '100%', sm: '460px' },
-            mx: 'auto',
-            '@keyframes cardEntrance': {
-              from: { 
-                opacity: 0,
-                transform: 'translateY(20px) scale(0.95)'
-              },
-              to: { 
-                opacity: 1,
-                transform: 'translateY(0) scale(1)'
-              }
-            }
+          <Box sx={{
+            display: 'flex',
+            gap: { xs: 2, sm: 3 },
+            justifyContent: 'center',
+            mb: 6,
+            animation: 'fadeSlideUp 0.6s ease-out 0.3s backwards',
+            flexWrap: 'wrap'
           }}>
             {FRENS.map((fren, index) => (
-              <Box
-                key={fren.name}
-                sx={{ 
-                  flex: 1,
-                  minWidth: 0,
-                  maxWidth: '33%',
-                  bgcolor: 'white',
-                  borderRadius: 2,
-                  boxShadow: '0 4px 16px rgba(245, 13, 180, 0.08)',
-                  border: '1px solid rgba(245, 13, 180, 0.1)',
+              <Box key={index} sx={{
+                width: { xs: 100, sm: 120 },
+                textAlign: 'center',
+                transition: 'transform 0.2s ease-in-out',
+                '&:hover': {
+                  transform: 'translateY(-4px)'
+                }
+              }}>
+                <Box sx={{
+                  width: '100%',
+                  aspectRatio: '1',
+                  borderRadius: 3,
                   overflow: 'hidden',
-                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                  animation: `cardEntrance 0.5s ease-out forwards ${index * 0.1 + 0.2}s`,
-                  opacity: 0,
-                  '&:hover': {
-                    transform: 'translateY(-4px) scale(1.02)',
-                    boxShadow: '0 8px 24px rgba(245, 13, 180, 0.16)'
-                  }
-                }}
-              >
-                <Box sx={{ 
-                  aspectRatio: '1', 
-                  display: 'flex',
-                  transition: 'transform 0.3s ease-in-out',
-                  '&:hover': {
-                    transform: 'scale(1.05)'
-                  }
+                  mb: 1,
+                  backgroundColor: 'white',
+                  border: '1px solid rgba(245, 13, 180, 0.1)',
+                  boxShadow: '0 4px 20px rgba(245, 13, 180, 0.08)'
                 }}>
-                  <AvatarGenerator 
-                    size="100%" 
-                    name={fren.seed}
-                    variant="beam" 
-                    colors={['#F50DB4', '#FEAFF0']} 
-                    square={true} 
+                  <AvatarGenerator
+                    size="100%"
+                    name={fren.name}
+                    variant="beam"
+                    colors={['#F50DB4', '#FEAFF0']}
+                    square={true}
                   />
                 </Box>
-                <Box sx={{ 
-                  p: { xs: 1, sm: 1.25 },
-                  borderTop: '1px solid rgba(245, 13, 180, 0.1)',
-                  background: 'linear-gradient(to bottom, rgba(255,255,255,0.8), rgba(255,255,255,1))',
-                  transform: 'translateY(0)',
-                  transition: 'transform 0.3s ease-in-out',
-                  '&:hover': {
-                    transform: 'translateY(-2px)'
-                  }
+                <Typography sx={{
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                  color: '#F50DB4'
                 }}>
-                  <Typography sx={{ 
-                    fontSize: { xs: '0.75rem', sm: '0.85rem' },
-                    fontWeight: 700,
-                    color: '#111',
-                    mb: 0.25,
-                    fontFamily: 'Space Grotesk',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis'
-                  }}>
-                    {fren.name}
-                  </Typography>
-                  <Typography sx={{ 
-                    color: '#4CAF50',
-                    fontSize: { xs: '0.65rem', sm: '0.75rem' },
-                    fontFamily: 'Space Grotesk',
-                    fontWeight: 600,
-                    letterSpacing: '0.02em',
-                    transition: 'transform 0.2s ease-in-out',
-                    '&:hover': {
-                      transform: 'scale(1.05)'
-                    }
-                  }}>
-                    +{values[index].toFixed(8)}
-                  </Typography>
-                </Box>
+                  {fren.name}.fren
+                </Typography>
               </Box>
             ))}
           </Box>
 
-          {/* CTA */}
-          <Box sx={{ mb: { xs: 3, sm: 2.5 } }}>
+          {/* CTA Buttons */}
+          <Box sx={{ 
+            display: 'flex', 
+            gap: 2, 
+            justifyContent: 'center',
+            mb: 6,
+            animation: 'fadeSlideUp 0.6s ease-out 0.4s backwards'
+          }}>
             <Button
               component={Link}
-              to="/frens"
+              to="/mint"
+              variant="contained"
               sx={{
-                bgcolor: '#F50DB4',
-                color: 'white',
+                py: 1.5,
                 px: { xs: 3, sm: 4 },
-                py: { xs: 1.25, sm: 1.5 },
-                borderRadius: 50,
-                fontSize: { xs: 16, sm: 18 },
-                fontWeight: 600,
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                transform: 'translateY(0)',
-                '&:hover': { 
-                  bgcolor: '#d00a9b',
-                  transform: 'translateY(-2px)',
-                  boxShadow: '0 4px 16px rgba(245, 13, 180, 0.25)'
-                },
-                '&:active': {
-                  transform: 'translateY(0)',
-                  boxShadow: '0 2px 8px rgba(245, 13, 180, 0.25)'
-                }
+                fontSize: { xs: '1rem', sm: '1.125rem' },
+                borderRadius: '12px',
+                textTransform: 'none',
+                fontWeight: 600
               }}
             >
               Launch App
             </Button>
+            <Button
+              component={MuiLink}
+              href="https://unifrens.gitbook.io/unifrens-docs"
+              target="_blank"
+              rel="noopener"
+              variant="outlined"
+              sx={{
+                py: 1.5,
+                px: { xs: 3, sm: 4 },
+                fontSize: { xs: '1rem', sm: '1.125rem' },
+                borderRadius: '12px',
+                textTransform: 'none',
+                fontWeight: 600,
+                borderColor: 'rgba(245, 13, 180, 0.3)',
+                '&:hover': {
+                  borderColor: '#F50DB4',
+                  background: 'rgba(245, 13, 180, 0.04)'
+                }
+              }}
+            >
+              Learn More
+            </Button>
           </Box>
 
-          {/* Footer */}
+          {/* Feature Grid */}
           <Box sx={{ 
-            display: 'flex', 
-            flexDirection: 'column', 
-            alignItems: 'center', 
-            gap: 1.5
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+            gap: 4,
+            mb: 6,
+            animation: 'fadeSlideUp 0.6s ease-out 0.5s backwards'
           }}>
-            <Box sx={{ display: 'flex', gap: 2.5, alignItems: 'center' }}>
-              {/* Discord link temporarily removed
-              <MuiLink href="https://discord.gg/nrQezVny" target="_blank" sx={{ display: 'flex', alignItems: 'center', height: 22 }}>
-                <Box 
-                  component="img" 
-                  src={discordIcon} 
-                  sx={{ 
-                    width: 22,
-                    height: 22,
-                    opacity: 0.8,
-                    transition: 'all 0.2s',
-                    filter: 'invert(36%) sepia(71%) saturate(6010%) hue-rotate(308deg) brightness(97%) contrast(101%)',
-                    '&:hover': {
-                      opacity: 1,
-                      transform: 'scale(1.05)'
-                    }
-                  }} 
-                />
-              </MuiLink>
-              */}
-              <MuiLink href="https://x.com/unichainfrens" target="_blank" sx={{ display: 'flex', alignItems: 'center', height: 22 }}>
-                <Box 
-                  component="img" 
-                  src={xIcon} 
-                  sx={{ 
-                    width: 22,
-                    height: 22,
-                    opacity: 0.8,
-                    transition: 'all 0.2s',
-                    filter: 'invert(36%) sepia(71%) saturate(6010%) hue-rotate(308deg) brightness(97%) contrast(101%)',
-                    '&:hover': {
-                      opacity: 1,
-                      transform: 'scale(1.05)'
-                    }
-                  }} 
-                />
-              </MuiLink>
-              <MuiLink href="https://github.com/unifrens" target="_blank" sx={{ display: 'flex', alignItems: 'center', height: 22 }}>
-                <Box 
-                  component="img" 
-                  src={githubIcon} 
-                  sx={{ 
-                    width: 22,
-                    height: 22,
-                    opacity: 0.8,
-                    transition: 'all 0.2s',
-                    filter: 'invert(36%) sepia(71%) saturate(6010%) hue-rotate(308deg) brightness(97%) contrast(101%)',
-                    '&:hover': {
-                      opacity: 1,
-                      transform: 'scale(1.05)'
-                    }
-                  }} 
-                />
-              </MuiLink>
-              <MuiLink href="https://unifrens.gitbook.io/unifrens-docs/" target="_blank" sx={{ display: 'flex', alignItems: 'center', height: 22 }}>
-                <Box 
-                  component="img" 
-                  src={gitbookIcon} 
-                  sx={{ 
-                    width: 22,
-                    height: 22,
-                    opacity: 0.8,
-                    transition: 'all 0.2s',
-                    filter: 'invert(36%) sepia(71%) saturate(6010%) hue-rotate(308deg) brightness(97%) contrast(101%)',
-                    '&:hover': {
-                      opacity: 1,
-                      transform: 'scale(1.05)'
-                    }
-                  }} 
-                />
-              </MuiLink>
-            </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
-              <Typography sx={{ 
-                color: '#666',
-                fontSize: { xs: '0.8rem', sm: '0.875rem' }
-              }}>
-                Powered by
+            <Box sx={{ textAlign: 'left', p: 3, borderRadius: 3, bgcolor: 'rgba(245, 13, 180, 0.03)', border: '1px solid rgba(245, 13, 180, 0.1)' }}>
+              <Typography variant="h3" sx={{ fontSize: '1.25rem', fontWeight: 700, mb: 1, color: '#111' }}>
+                Unique Digital Identity
               </Typography>
-              <Box
-                component="img"
-                src="/Unichain-Lockup-Dark.png"
-                sx={{ 
-                  height: { xs: 12, sm: 14 },
-                  filter: 'invert(40%) sepia(0%) saturate(1%) hue-rotate(231deg) brightness(95%) contrast(89%)'
-                }}
-                alt="Unichain"
-              />
+              <Typography sx={{ color: '#666', lineHeight: 1.6 }}>
+                Your .fren name is more than just a username—it's your permanent web3 identity that grows with you over time.
+              </Typography>
             </Box>
+
+            <Box sx={{ textAlign: 'left', p: 3, borderRadius: 3, bgcolor: 'rgba(245, 13, 180, 0.03)', border: '1px solid rgba(245, 13, 180, 0.1)' }}>
+              <Typography variant="h3" sx={{ fontSize: '1.25rem', fontWeight: 700, mb: 1, color: '#111' }}>
+                Built for Longevity
+              </Typography>
+              <Typography sx={{ color: '#666', lineHeight: 1.6 }}>
+                Names become more established over time through active participation, making early adoption and engagement meaningful.
+              </Typography>
+            </Box>
+
+            <Box sx={{ textAlign: 'left', p: 3, borderRadius: 3, bgcolor: 'rgba(245, 13, 180, 0.03)', border: '1px solid rgba(245, 13, 180, 0.1)' }}>
+              <Typography variant="h3" sx={{ fontSize: '1.25rem', fontWeight: 700, mb: 1, color: '#111' }}>
+                Transparent & Decentralized
+              </Typography>
+              <Typography sx={{ color: '#666', lineHeight: 1.6 }}>
+                All ownership is secured on-chain with no central control. What you own is truly yours.
+              </Typography>
+            </Box>
+
+            <Box sx={{ textAlign: 'left', p: 3, borderRadius: 3, bgcolor: 'rgba(245, 13, 180, 0.03)', border: '1px solid rgba(245, 13, 180, 0.1)' }}>
+              <Typography variant="h3" sx={{ fontSize: '1.25rem', fontWeight: 700, mb: 1, color: '#111' }}>
+                Community First
+              </Typography>
+              <Typography sx={{ color: '#666', lineHeight: 1.6 }}>
+                Join a community of .frens building the future of digital identity and ownership.
+              </Typography>
+            </Box>
+          </Box>
+
+          {/* Social Links */}
+          <Box sx={{ 
+            display: 'flex',
+            gap: 3,
+            justifyContent: 'center',
+            animation: 'fadeSlideUp 0.6s ease-out 0.6s backwards'
+          }}>
+            <MuiLink 
+              href="https://discord.gg/unifrens" 
+              target="_blank"
+              sx={{
+                opacity: 0.6,
+                transition: 'opacity 0.2s',
+                '&:hover': { opacity: 1 }
+              }}
+            >
+              <img src={discordIcon} alt="Discord" style={{ width: 24, height: 24 }} />
+            </MuiLink>
+            <MuiLink 
+              href="https://x.com/unifrens" 
+              target="_blank"
+              sx={{
+                opacity: 0.6,
+                transition: 'opacity 0.2s',
+                '&:hover': { opacity: 1 }
+              }}
+            >
+              <img src={xIcon} alt="X" style={{ width: 24, height: 24 }} />
+            </MuiLink>
+            <MuiLink 
+              href="https://github.com/unifrens" 
+              target="_blank"
+              sx={{
+                opacity: 0.6,
+                transition: 'opacity 0.2s',
+                '&:hover': { opacity: 1 }
+              }}
+            >
+              <img src={githubIcon} alt="GitHub" style={{ width: 24, height: 24 }} />
+            </MuiLink>
+            <MuiLink 
+              href="https://unifrens.gitbook.io/unifrens-docs" 
+              target="_blank"
+              sx={{
+                opacity: 0.6,
+                transition: 'opacity 0.2s',
+                '&:hover': { opacity: 1 }
+              }}
+            >
+              <img src={gitbookIcon} alt="GitBook" style={{ width: 24, height: 24 }} />
+            </MuiLink>
           </Box>
         </Box>
       </Box>

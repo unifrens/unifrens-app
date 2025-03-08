@@ -1,41 +1,45 @@
-import { Box, Container, Typography, Paper } from '@mui/material';
+import { Box, Container, Typography, Button } from '@mui/material';
 import { BackgroundPattern } from '../App';
 import TokenIcon from '@mui/icons-material/Token';
 import ImageIcon from '@mui/icons-material/Image';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import Navbar from '../components/Navbar';
+import { Link } from 'react-router-dom';
 
-const UtilityButton = ({ icon: Icon, title }) => (
-  <Paper
-    sx={{
-      aspectRatio: '1/1',
-      p: 3,
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      textAlign: 'center',
-      cursor: 'pointer',
-      backgroundColor: '#fff',
-      borderRadius: '16px',
-      border: '1px solid rgba(245, 13, 180, 0.1)',
-      transition: 'all 0.2s ease-in-out',
-      '&:hover': {
-        backgroundColor: 'rgba(245, 13, 180, 0.04)',
-        transform: 'translateY(-2px)',
-      }
-    }}
-  >
-    <Icon sx={{ fontSize: 48, color: '#F50DB4', mb: 2 }} />
-    <Typography variant="h6" sx={{ 
-      fontSize: '1.1rem',
-      fontWeight: 600,
-      color: '#111'
-    }}>
-      {title}
-    </Typography>
-  </Paper>
-);
+const UtilityButton = ({ icon: Icon, title, to }) => {
+  return (
+    <Button
+      component={Link}
+      to={to}
+      sx={{
+        aspectRatio: '1/1',
+        p: 3,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        textAlign: 'center',
+        backgroundColor: '#fff',
+        borderRadius: '16px',
+        border: '1px solid rgba(245, 13, 180, 0.1)',
+        transition: 'all 0.2s ease-in-out',
+        '&:hover': {
+          backgroundColor: 'rgba(245, 13, 180, 0.04)',
+          transform: 'translateY(-2px)',
+        }
+      }}
+    >
+      <Icon sx={{ fontSize: 48, color: '#F50DB4', mb: 2 }} />
+      <Typography variant="h6" sx={{ 
+        fontSize: '1.1rem',
+        fontWeight: 600,
+        color: '#111'
+      }}>
+        {title}
+      </Typography>
+    </Button>
+  );
+};
 
 const UtilitiesPage = () => {
   return (
@@ -85,14 +89,17 @@ const UtilitiesPage = () => {
           <UtilityButton 
             icon={TokenIcon}
             title="Token Deployer"
+            to="/utilities/token-deployer"
           />
           <UtilityButton 
             icon={ImageIcon}
             title="NFT Minter"
+            to="/utilities/nft-minter"
           />
           <UtilityButton 
             icon={AccountTreeIcon}
             title="Deploy a Fren Chain"
+            to="/utilities/chain-deployer"
           />
         </Box>
       </Container>

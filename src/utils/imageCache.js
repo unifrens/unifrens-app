@@ -1,5 +1,54 @@
 // Cache duration in milliseconds (7 days)
 const CACHE_DURATION = 7 * 24 * 60 * 60 * 1000;
+// Rate limiting: max 5 requests per second
+const RATE_LIMIT_WINDOW = 1000;
+const MAX_REQUESTS_PER_WINDOW = 5;
+const requestQueue = [];
+let processingQueue = false;
+
+const processQueue = async () => {
+  if (processingQueue) return;
+  processingQueue = true;
+
+  while (requestQueue.length > 0) {
+    const batch = requestQueue.splice(0, MAX_REQUESTS_PER_WINDOW);
+    await Promise.allSettled(batch.map(req => req()));
+    if (requestQueue.length > 0) {
+      await new Promise(resolve => setTimeout(resolve, RATE_LIMIT_WINDOW));
+    }
+  }
+
+  processingQueue = false;
+};
+
+const queueImageLoad = (name) => {
+  return new Promise((resolve, reject) => {
+    const task = async () => {
+      try {
+        const img = new Image();
+        const imageLoadPromise = new Promise((resolveLoad, rejectLoad) => {
+          img.onload = resolveLoad;
+          img.onerror = (err) => {
+            // Don't log 429 errors as they're expected during rate limiting
+            if (!err.message?.includes('429')) {
+              console.warn(`Failed to load image for ${name}:`, err);
+            }
+            rejectLoad(err);
+          };
+          img.crossOrigin = 'anonymous';
+        });
+
+        img.src = getNFTImageUrl(name);
+        await imageLoadPromise;
+        resolve(img);
+      } catch (err) {
+        reject(err);
+      }
+    };
+    requestQueue.push(task);
+    processQueue();
+  });
+};
 
 export const getNFTImageUrl = (name) => `https://imgs.unifrens.com/${encodeURIComponent(name)}`;
 
@@ -14,16 +63,8 @@ export const cacheNFTImage = async (name) => {
       }
     }
 
-    // Load and cache the image
-    const img = new Image();
-    const imageLoadPromise = new Promise((resolve, reject) => {
-      img.onload = resolve;
-      img.onerror = reject;
-      img.crossOrigin = 'anonymous'; // Enable CORS for canvas operations
-    });
-
-    img.src = getNFTImageUrl(name);
-    await imageLoadPromise;
+    // Load and cache the image with rate limiting
+    const img = await queueImageLoad(name);
 
     // Cache the loaded image
     const canvas = document.createElement('canvas');
@@ -42,7 +83,10 @@ export const cacheNFTImage = async (name) => {
 
     return true;
   } catch (err) {
-    console.warn('Failed to cache NFT image:', err);
+    // Only log non-rate-limit errors
+    if (!err.message?.includes('429')) {
+      console.warn('Failed to cache NFT image:', err);
+    }
     return false;
   }
 };

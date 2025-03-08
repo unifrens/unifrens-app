@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { Box, Container, Typography, TextField, Button, Link as MuiLink } from '@mui/material';
 import Navbar from './Navbar';
 import { isAddress } from 'viem';
+import ReCAPTCHA from 'react-google-recaptcha';
 
 const FAUCET_ADDRESS = '0x7eB66917eA13e3f65F12D4301C9f731273E48c3c';
 const ALCHEMY_RPC = import.meta.env.VITE_ALCHEMY_RPC_URL;
+const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
 
 const FaucetPage = () => {
   const [address, setAddress] = useState('');
@@ -14,6 +16,7 @@ const FaucetPage = () => {
   const [txHash, setTxHash] = useState('');
   const [faucetBalance, setFaucetBalance] = useState(null);
   const [isLoadingBalance, setIsLoadingBalance] = useState(true);
+  const [captchaToken, setCaptchaToken] = useState(null);
 
   const fetchFaucetBalance = async () => {
     try {
@@ -58,7 +61,7 @@ const FaucetPage = () => {
   };
 
   const handleRequest = async () => {
-    if (!address || error) return;
+    if (!address || error || !captchaToken) return;
     
     setIsRequesting(true);
     setResult('');
@@ -76,7 +79,10 @@ const FaucetPage = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ address })
+        body: JSON.stringify({ 
+          address,
+          captchaToken 
+        })
       });
 
       const data = await response.json();
@@ -94,6 +100,11 @@ const FaucetPage = () => {
       setError('Failed to connect to faucet server. Please try again later.');
     } finally {
       setIsRequesting(false);
+      // Reset the CAPTCHA
+      setCaptchaToken(null);
+      if (window.grecaptcha) {
+        window.grecaptcha.reset();
+      }
     }
   };
 
@@ -242,10 +253,21 @@ const FaucetPage = () => {
                 }
               }}
             />
+
+            {/* Add reCAPTCHA */}
+            <Box sx={{ mb: 2, display: 'flex', justifyContent: 'center' }}>
+              <ReCAPTCHA
+                sitekey={RECAPTCHA_SITE_KEY}
+                onChange={(token) => setCaptchaToken(token)}
+                onExpired={() => setCaptchaToken(null)}
+                theme="light"
+              />
+            </Box>
+
             <Button
               variant="contained"
               onClick={handleRequest}
-              disabled={!address || !!error || isRequesting}
+              disabled={!address || !!error || isRequesting || !captchaToken}
               fullWidth
               sx={{ 
                 py: { xs: 1.25, sm: 1.5 },

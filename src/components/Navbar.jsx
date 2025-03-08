@@ -16,7 +16,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { createPublicClient, http, formatEther } from 'viem';
-import { unichainSepolia } from '../wallet';
+import { unichainMainnet } from '../wallet';
 import logo from '../assets/unifrens-logo-v2.png';
 import xIcon from '../assets/11053970_x_logo_twitter_new_brand_icon.svg';
 import githubIcon from '../assets/github-142-svgrepo-com.svg';
@@ -27,7 +27,7 @@ import AvatarGenerator from '../components/AvatarGenerator';
 import { useRewards } from '../context/RewardsContext';
 
 const publicClient = createPublicClient({
-  chain: unichainSepolia,
+  chain: unichainMainnet,
   transport: http()
 });
 
@@ -41,11 +41,9 @@ const Navbar = () => {
     networkName: '',
     isValidNetwork: false
   });
-  const [profileData, setProfileData] = useState(null);
-  const [userFrens, setUserFrens] = useState([]);
   const location = useLocation();
   const navigate = useNavigate();
-  const { totalPendingRewards } = useRewards();
+  const { totalPendingRewards, userFrens } = useRewards();
 
   const toggleDrawer = (open) => (event) => {
     if (event.type === 'keydown' && (event.key === 'Tab' || event.key === 'Shift')) {
@@ -61,11 +59,11 @@ const Navbar = () => {
       try {
         const accounts = await window.ethereum.request({ method: 'eth_accounts' });
         const chainId = await window.ethereum.request({ method: 'eth_chainId' });
-        const validChainId = `0x${unichainSepolia.id.toString(16)}`;
+        const validChainId = `0x${unichainMainnet.id.toString(16)}`;
         
         if (accounts.length > 0) {
           const isValidNetwork = chainId === validChainId;
-          const networkName = isValidNetwork ? 'Unichain Sepolia' : 'Wrong Network';
+          const networkName = isValidNetwork ? 'Unichain Mainnet' : 'Wrong Network';
           
           try {
             const balance = await publicClient.getBalance({ address: accounts[0] });
@@ -75,19 +73,6 @@ const Navbar = () => {
               networkName,
               isValidNetwork
             });
-
-            // Fetch user's frens when wallet is connected
-            try {
-              const response = await fetch('https://imgs.unifrens.com/leaderboard/nfts');
-              const data = await response.json();
-              const userNFTs = data.nfts.filter(nft => 
-                nft.owner.toLowerCase() === accounts[0].toLowerCase()
-              );
-              setUserFrens(userNFTs);
-            } catch (error) {
-              console.error('Error fetching NFTs:', error);
-              setUserFrens([]);
-            }
           } catch (error) {
             // If balance fetch fails due to rate limit, keep other data but clear balance
             setWalletData({ 
@@ -104,7 +89,6 @@ const Navbar = () => {
             networkName: '',
             isValidNetwork: false
           });
-          setUserFrens([]);
         }
       } catch (error) {
         console.error('Error checking wallet status:', error);
@@ -114,7 +98,6 @@ const Navbar = () => {
           networkName: '',
           isValidNetwork: false
         });
-        setUserFrens([]);
       }
     };
 
@@ -139,27 +122,6 @@ const Navbar = () => {
     };
   }, []);
 
-  useEffect(() => {
-    // Load profile data from localStorage
-    const loadProfileData = () => {
-      const savedProfile = localStorage.getItem('profileData');
-      if (savedProfile) {
-        setProfileData(JSON.parse(savedProfile));
-      } else {
-        setProfileData(null);
-      }
-    };
-
-    loadProfileData();
-    window.addEventListener('storage', loadProfileData);
-    // Add listener for custom profileUpdate event
-    window.addEventListener('profileUpdate', loadProfileData);
-    return () => {
-      window.removeEventListener('storage', loadProfileData);
-      window.removeEventListener('profileUpdate', loadProfileData);
-    };
-  }, []);
-
   const handleConnect = async () => {
     if (!window.ethereum) {
       setError('Please install a Web3 wallet');
@@ -180,19 +142,19 @@ const Navbar = () => {
           method: 'eth_chainId' 
         });
         
-        const validChainId = `0x${unichainSepolia.id.toString(16)}`;
+        const validChainId = `0x${unichainMainnet.id.toString(16)}`;
 
         if (chainId !== validChainId) {
-          setError('Please switch to Unichain Sepolia Testnet');
+          setError('Please switch to Unichain Mainnet');
           try {
             await window.ethereum.request({
               method: 'wallet_addEthereumChain',
               params: [{
-                chainId: `0x${unichainSepolia.id.toString(16)}`,
-                chainName: unichainSepolia.name,
-                nativeCurrency: unichainSepolia.nativeCurrency,
-                rpcUrls: unichainSepolia.rpcUrls.public.http,
-                blockExplorerUrls: [unichainSepolia.blockExplorers.default.url],
+                chainId: `0x${unichainMainnet.id.toString(16)}`,
+                chainName: unichainMainnet.name,
+                nativeCurrency: unichainMainnet.nativeCurrency,
+                rpcUrls: unichainMainnet.rpcUrls.public.http,
+                blockExplorerUrls: [unichainMainnet.blockExplorers.default.url],
               }],
             });
           } catch (switchError) {
@@ -237,6 +199,48 @@ const Navbar = () => {
 
   const formatAddress = (address) => {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  };
+
+  const checkNetwork = async () => {
+    try {
+      const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+      const validChainId = `0x${unichainMainnet.id.toString(16)}`;
+      const isValidNetwork = chainId === validChainId;
+      setWalletData(prev => ({ ...prev, networkName: isValidNetwork ? 'Unichain Mainnet' : 'Wrong Network', isValidNetwork }));
+    } catch (error) {
+      console.error('Error checking network:', error);
+      setWalletData(prev => ({ ...prev, networkName: 'Error', isValidNetwork: false }));
+    }
+  };
+
+  const switchNetwork = async () => {
+    try {
+      const validChainId = `0x${unichainMainnet.id.toString(16)}`;
+      await window.ethereum.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: validChainId }],
+      });
+    } catch (error) {
+      if (error.code === 4902) {
+        try {
+          await window.ethereum.request({
+            method: 'wallet_addEthereumChain',
+            params: [
+              {
+                chainId: `0x${unichainMainnet.id.toString(16)}`,
+                chainName: unichainMainnet.name,
+                nativeCurrency: unichainMainnet.nativeCurrency,
+                rpcUrls: [unichainMainnet.rpcUrls.default.http[0]],
+                blockExplorerUrls: [unichainMainnet.blockExplorers.default.url],
+              },
+            ],
+          });
+        } catch (addError) {
+          console.error('Error adding network:', addError);
+        }
+      }
+      console.error('Error switching network:', error);
+    }
   };
 
   return (
@@ -297,8 +301,7 @@ const Navbar = () => {
               height: { xs: 40, sm: 40 }  // Match height with logo container
             }}>
               <IconButton
-                component={Link}
-                to="/profile"
+                onClick={walletData.address ? toggleDrawer(true) : handleConnect}
                 sx={{
                   width: 40,
                   height: 40,
@@ -313,7 +316,7 @@ const Navbar = () => {
                   }
                 }}
               >
-                {(walletData.address && walletData.isValidNetwork && profileData) ? (
+                {walletData.address && walletData.isValidNetwork ? (
                   <Box sx={{ 
                     width: '100%',
                     height: '100%',
@@ -322,7 +325,7 @@ const Navbar = () => {
                   }}>
                     <AvatarGenerator
                       size="100%"
-                      name={profileData.name}
+                      name={walletData.address}
                       variant="beam"
                       colors={['#F50DB4', '#FEAFF0']}
                     />
@@ -419,15 +422,8 @@ const Navbar = () => {
 
           {/* Profile Settings Button */}
           <ListItem 
-            component={walletData.address ? Link : 'button'}
-            to="/profile"
-            onClick={(e) => {
-              if (!walletData.address) {
-                handleConnect();
-              } else {
-                toggleDrawer(false)(e);
-              }
-            }}
+            component="button"
+            onClick={walletData.address ? toggleDrawer(false) : handleConnect}
             sx={{
               borderRadius: '12px',
               p: { xs: 1, sm: 1.5 },
@@ -444,7 +440,7 @@ const Navbar = () => {
               minWidth: { xs: 32, sm: 40 },
               color: location.pathname === '/profile' ? '#F50DB4' : '#666'
             }}>
-              {(walletData.address && walletData.isValidNetwork && profileData) ? (
+              {walletData.address && walletData.isValidNetwork ? (
                 <Box sx={{ 
                   width: { xs: 20, sm: 24 },
                   height: { xs: 20, sm: 24 },
@@ -453,7 +449,7 @@ const Navbar = () => {
                 }}>
                   <AvatarGenerator
                     size="100%"
-                    name={profileData.name}
+                    name={walletData.address}
                     variant="beam"
                     colors={['#F50DB4', '#FEAFF0']}
                   />
@@ -464,7 +460,7 @@ const Navbar = () => {
             </ListItemIcon>
             <ListItemText 
               primary="Profile Settings"
-              secondary={walletData.address && walletData.isValidNetwork && profileData ? `${profileData.name}.fren` : 'Connect Wallet'}
+              secondary={walletData.address && walletData.isValidNetwork ? formatAddress(walletData.address) : 'Connect Wallet'}
               sx={{
                 '& .MuiListItemText-primary': {
                   fontSize: { xs: '0.875rem', sm: '0.95rem' },
@@ -644,6 +640,7 @@ const Navbar = () => {
             to="/leaderboard"
             onClick={toggleDrawer(false)}
             sx={{
+              display: 'none', // Hide leaderboard
               borderRadius: '12px',
               mb: { xs: 0.5, sm: 1 },
               py: { xs: 1, sm: 1.5 },
@@ -676,6 +673,7 @@ const Navbar = () => {
             to="/play"
             onClick={toggleDrawer(false)}
             sx={{
+              display: 'none', // Hide games
               borderRadius: '12px',
               mb: { xs: 0.5, sm: 1 },
               py: { xs: 1, sm: 1.5 },
@@ -709,6 +707,7 @@ const Navbar = () => {
             to="/faucet"
             onClick={toggleDrawer(false)}
             sx={{
+              display: 'none', // Hide faucet
               borderRadius: '12px',
               mb: 1,
               backgroundColor: location.pathname === '/faucet' ? 'rgba(245, 13, 180, 0.04)' : 'transparent',
@@ -740,6 +739,7 @@ const Navbar = () => {
             to="/utilities"
             onClick={toggleDrawer(false)}
             sx={{
+              display: 'none', // Hide utilities
               borderRadius: '12px',
               mb: 1,
               backgroundColor: location.pathname === '/utilities' ? 'rgba(245, 13, 180, 0.04)' : 'transparent',
